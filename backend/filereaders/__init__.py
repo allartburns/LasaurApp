@@ -7,7 +7,7 @@ __author__ = 'Stefan Hechenberger <stefan@nortd.com>'
 
 
 from .svg_reader import SVGReader
-from .dxf_reader import DXFReader
+from .dxf_parser import DXFParser
 from .ngc_reader import NGCReader
 from .path_optimizers import optimize_all
 
@@ -22,8 +22,8 @@ def read_svg(svg_string, target_size, tolerance, forced_dpi=None, optimize=True)
 
 
 def read_dxf(dxf_string, tolerance, optimize=True):
-    dxfReader = DXFReader(tolerance)
-    parse_results = dxfReader.parse(dxf_string)
+    dxfParser = DXFParser(tolerance)
+    parse_results = dxfParser.parse(dxf_string)
     if optimize:
         optimize_all(parse_results['boundarys'], tolerance)
     # # flip y-axis

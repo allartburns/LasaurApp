@@ -65,36 +65,31 @@ class DXFParser:
         print("finished init")
 
     def parse(self, dxfInput):
-        print("attempt to parse dxfInput len ", len(dxfInput))
-        dxfStream = io.StringIO(unicode(dxfInput))
-
+        dxfStripped = dxfInput.replace('\r\n','\n')
+        dxfStream = io.StringIO(unicode(dxfStripped.replace('\r\n','\n')))
+        
         infile = dxfgrabber.read(dxfStream)
         if not infile:
-            print ("didn't create infile")
+            print ("DXFGRABBER FAIL")
             raise ValueError
 
         if self.debug:
             print("DXF version: {}".format(infile.dxfversion))
-            header_var_count = len(infile.header) # dict of dxf header vars
-            print("var count: ", header_var_count)
-            layer_count = len(infile.layers) # collection of layer definitions
-            print("layer count: ", layer_count)
-            entity_count = len(infile.entities) # list like collection of entities
-            print("entity count: ", entity_count)
-
+            print("header var count: ", len(infile.header))
+            print("layer count: ", len(infile.layers)) 
+            print("block def count: ", len(infile.blocks))
+            print("entitiy count: ", len(infile.entities))
 
         for entity in infile.entities:
             if entity.dxftype == "LINE":
-                print ("line: ", entity)
-                print ("dxftype: ", entity.dxftype)
-                print ("color: ", entity.color)
-#                self.doLine(entity)
+                self.do_line(entity)
         
         print "Done!"
         
         self.returnBoundarys = {}
         for color in self.boundarys:
             if len(self.boundarys[color]) > 0:
+                print ("returning color ", color)
                 self.returnBoundarys[color] = self.boundarys[color]
         return {'boundarys':self.returnBoundarys}
 
@@ -102,7 +97,7 @@ class DXFParser:
     ################
     # Translate each type of entity (line, circle, arc, lwpolyline)
 
-    def do_line(self):
+    def do_line(self, entity):
         path = [entity.start, entity.end]
         color = entity.color
         self.add_path_by_color(color, path)
@@ -175,7 +170,7 @@ class DXFParser:
             self.blue_boundarys.append(path)
         elif color == 6:
             self.magenta_boundarys.append(path) 
-        elif color == 7:
+        elif color == 7 or color == 256:
             self.black_boundarys.append(path)
         else:
             print("don't know what to do with color ", color)
