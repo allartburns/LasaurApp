@@ -1,5 +1,26 @@
+dxfgrabber branch notes
+=======================
 
-LasaurApp
+This branch replaces the lasersaur dxf reader with a parser driving
+dxfgrabber.   All new work added by jet is under the existing
+lasersaur licensing.  This work is done on jet's personal time and
+not supported by any commercial entities and donations are always welcome.
+
+currently working or in development:
+
+dxf line colors
+dxf units converted to mm
+
+major TODO list:
+- flipping dxf files so that they don't cut face down in the lasersaur
+- TEXT YES TEXT I'M WORKING ON THAT DILUTE! DILUTE! OK!
+- more dxf entities
+- remapping/reducing dxf color sets down to a set of 0..7
+  (which will probably change when we start rasterizing)
+
+--- start of LasersauApp official README.md ---
+
+LasaurApp 
 =========
 
 LasaurApp is the official [Lasersaur](http://lasersaur.com) app. It has all the functionality to operate this kind of laser cutter:
