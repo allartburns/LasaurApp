@@ -139,6 +139,7 @@ class DXFParser:
         self.makeArc(path, cx, cy-r, r, r, 0, 0, 0, cx-r, cy)
         self.add_path_by_color(entity.color, path)
 
+    #TODO: find a test case for this
     def do_lwpolyline(self):
         color = float(self.readgroup(62))
         numverts = int(self.readgroup(90))
