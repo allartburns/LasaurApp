@@ -128,10 +128,10 @@ $(document).ready(function(){
   }
 
   function handleParsedGeometry(data) {
-    // data is a dict with the following keys [boundarys, dpi, lasertags]
-    var boundarys = data.boundarys;
-    if (boundarys) {
-      DataHandler.setByPaths(boundarys);
+    // data is a dict with the following keys [boundaries, dpi, lasertags]
+    var boundaries = data.boundaries;
+    if (boundaries) {
+      DataHandler.setByPaths(boundaries);
       if (path_optimize) {
         DataHandler.segmentizeLongLines();
       }

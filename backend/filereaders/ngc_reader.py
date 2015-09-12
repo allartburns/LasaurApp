@@ -24,8 +24,8 @@ class NGCReader:
         # parsed path data, paths by color
         # {'#ff0000': [[path0, path1, ..], [path0, ..], ..]}
         # Each path is a list of vertices which is a list of two floats.        
-        self.boundarys = {'#000000':[]}
-        self.black_boundarys = self.boundarys['#000000']
+        self.boundaries = {'#000000':[]}
+        self.black_boundaries = self.boundaries['#000000']
 
 
     def parse(self, ngcstring):
@@ -87,6 +87,6 @@ class NGCReader:
                 print "Warning: Unsupported Gcode"
 
         print "Done!"
-        self.boundarys = {'#000000':paths}
+        self.boundaries = {'#000000':paths}
         pass_ = ['1', feedrate, '', intensity, '', '#000000']
-        return {'boundarys':self.boundarys}
+        return {'boundaries':self.boundaries}

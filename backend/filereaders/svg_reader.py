@@ -35,7 +35,7 @@ except ImportError:
 # Thank you for open sourcing your work!
 #
 # Usage:
-# boundarys = SVGReader.parse(svgstring, config)
+# boundaries = SVGReader.parse(svgstring, config)
 #
 # Features:
 #   * <svg> width and height, viewBox clipping.
@@ -63,14 +63,14 @@ class SVGReader:
 
     Usage:
     reader = SVGReader(0.08, [1220,610])
-    boundarys = reader.parse(open('filename').read())
+    boundaries = reader.parse(open('filename').read())
     """
 
     def __init__(self, tolerance, target_size):
         # parsed path data, paths by color
         # {'#ff0000': [[[x,y], [x,y], ...], [], ..], '#0000ff':[]}
         # Each path is a list of vertices which is a list of two floats.
-        self.boundarys = {}
+        self.boundaries = {}
 
         # the conversion factor to physical dimensions
         # applied to all coordinates in the SVG
@@ -140,7 +140,7 @@ class SVGReader:
         5. defaults to 90 DPI
         """
         self.px2mm = None
-        self.boundarys = {}
+        self.boundaries = {}
 
         # parse xml
         svgRootElement = ET.fromstring(svgstring)
@@ -148,7 +148,7 @@ class SVGReader:
 
         if tagName != 'svg':
             log.error("Invalid file, no 'svg' tag found.")
-            return self.boundarys
+            return self.boundaries
 
         # 1. Get px2mm from argument
         if force_dpi is not None:
@@ -264,7 +264,7 @@ class SVGReader:
 
         # let the fun begin
         # recursively parse children
-        # output will be in self.boundarys
+        # output will be in self.boundaries
         node = {
             'xformToWorld': [1,0,0,1,tx,ty],
             'display': 'visible',
@@ -279,7 +279,7 @@ class SVGReader:
         self.parse_children(svgRootElement, node)
 
         # build result dictionary
-        parse_results = {'boundarys':self.boundarys, 'dpi':round(25.4/self.px2mm)}
+        parse_results = {'boundaries':self.boundaries, 'dpi':round(25.4/self.px2mm)}
         if self.lasertags:
             parse_results['lasertags'] = self.lasertags
 
@@ -311,7 +311,7 @@ class SVGReader:
                 # with current attributes and transformation
                 self._tagReader.read_tag(child, node)
 
-                # 3. compile boundarys + conversions
+                # 3. compile boundaries + conversions
                 for path in node['paths']:
                     if path:  # skip if empty subpath
                         # 3a.) convert to world coordinates and then to mm units
@@ -321,10 +321,10 @@ class SVGReader:
                             vertexScale(vert, self.px2mm)
                         # 3b.) sort output by color
                         hexcolor = node['stroke']
-                        if hexcolor in self.boundarys:
-                            self.boundarys[hexcolor].append(path)
+                        if hexcolor in self.boundaries:
+                            self.boundaries[hexcolor].append(path)
                         else:
-                            self.boundarys[hexcolor] = [path]
+                            self.boundaries[hexcolor] = [path]
 
                 # 4. any lasertags (cut settings)?
                 if node.has_key('lasertags'):

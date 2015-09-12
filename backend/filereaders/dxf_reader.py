@@ -17,7 +17,7 @@ class DXFReader:
 
     Usage:
     reader = DXFReader(0.08)
-    boundarys = reader.parse(open('filename').read())
+    boundaries = reader.parse(open('filename').read())
     """
 
     def __init__(self, tolerance):
@@ -38,7 +38,7 @@ class DXFReader:
         # 6 magenta
         # 7 black
 
-        self.boundarys = {'#FF0000':[],
+        self.boundaries = {'#FF0000':[],
                           '#FFFF00':[],
                           '#00FF00':[],
                           '#00FFFF':[],
@@ -46,13 +46,13 @@ class DXFReader:
                           '#CC33CC':[],
                           '#000000':[]}
 
-        self.red_boundarys = self.boundarys['#FF0000']
-        self.yellow_boundarys = self.boundarys['#FFFF00']
-        self.green_boundarys = self.boundarys['#00FF00']
-        self.cyan_boundarys = self.boundarys['#00FFFF']
-        self.blue_boundarys = self.boundarys['#0000FF']
-        self.magenta_boundarys = self.boundarys['#CC33CC']
-        self.black_boundarys = self.boundarys['#000000']
+        self.red_boundaries = self.boundaries['#FF0000']
+        self.yellow_boundaries = self.boundaries['#FFFF00']
+        self.green_boundaries = self.boundaries['#00FF00']
+        self.cyan_boundaries = self.boundaries['#00FFFF']
+        self.blue_boundaries = self.boundaries['#0000FF']
+        self.magenta_boundaries = self.boundaries['#CC33CC']
+        self.black_boundaries = self.boundaries['#000000']
         
         self.metricflag = 1
         self.linecount = 0
@@ -90,11 +90,11 @@ class DXFReader:
         self.infile.close()
         print "Done!"
 
-        self.returnBoundarys = {}
-        for color in self.boundarys:
-            if len(self.boundarys[color]) > 0:
-                self.returnBoundarys[color] = self.boundarys[color]
-        return {'boundarys':self.returnBoundarys}
+        self.returnBoundaries = {}
+        for color in self.boundaries:
+            if len(self.boundaries[color]) > 0:
+                self.returnBoundaries[color] = self.boundaries[color]
+        return {'boundaries':self.returnBoundaries}
 
 
     ################
@@ -202,19 +202,19 @@ class DXFReader:
 
     def add_path_by_color(self, color, path):
         if color == 1:
-            self.red_boundarys.append(path)
+            self.red_boundaries.append(path)
         elif color == 2:
-            self.yellow_boundarys.append(path)
+            self.yellow_boundaries.append(path)
         elif color == 3:
-            self.green_boundarys.append(path)
+            self.green_boundaries.append(path)
         elif color == 4:
-            self.cyan_boundarys.append(path)
+            self.cyan_boundaries.append(path)
         elif color == 5:
-            self.blue_boundarys.append(path)
+            self.blue_boundaries.append(path)
         elif color == 6:
-            self.magenta_boundarys.append(path) 
+            self.magenta_boundaries.append(path) 
         elif color == 7:
-            self.black_boundarys.append(path)
+            self.black_boundaries.append(path)
         else:
             print("don't know what to do with color ", color)
             raise ValueError

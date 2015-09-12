@@ -506,9 +506,9 @@ def file_reader():
         else:
             print "error: unsupported file format"
 
-        # print boundarys
+        # print boundaries
         jsondata = json.dumps(res)
-        # print "returning %d items as %d bytes." % (len(res['boundarys']), len(jsondata))
+        # print "returning %d items as %d bytes." % (len(res['boundaries']), len(jsondata))
         return jsondata
     return "You missed a field."
 

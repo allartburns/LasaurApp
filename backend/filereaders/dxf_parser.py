@@ -42,7 +42,7 @@ class DXFParser:
         # 7 black
         # TODO: support up to 255 colors
 
-        self.boundarys = {'#FF0000':[],
+        self.colorLayers = {'#FF0000':[],
                           '#FFFF00':[],
                           '#00FF00':[],
                           '#00FFFF':[],
@@ -50,19 +50,18 @@ class DXFParser:
                           '#CC33CC':[],
                           '#000000':[]}
 
-        self.red_boundarys = self.boundarys['#FF0000']
-        self.yellow_boundarys = self.boundarys['#FFFF00']
-        self.green_boundarys = self.boundarys['#00FF00']
-        self.cyan_boundarys = self.boundarys['#00FFFF']
-        self.blue_boundarys = self.boundarys['#0000FF']
-        self.magenta_boundarys = self.boundarys['#CC33CC']
-        self.black_boundarys = self.boundarys['#000000']
+        self.red_colorLayer = self.colorLayers['#FF0000']
+        self.yellow_colorLayer = self.colorLayers['#FFFF00']
+        self.green_colorLayer = self.colorLayers['#00FF00']
+        self.cyan_colorLayer = self.colorLayers['#00FFFF']
+        self.blue_colorLayer = self.colorLayers['#0000FF']
+        self.magenta_colorLayer = self.colorLayers['#CC33CC']
+        self.black_colorLayer = self.colorLayers['#000000']
         
         self.metricflag = 1
         self.linecount = 0
         self.line = ''
         self.dxfcode = ''
-        print("finished init")
 
     def parse(self, dxfInput):
         dxfStripped = dxfInput.replace('\r\n','\n')
@@ -82,25 +81,54 @@ class DXFParser:
 
         for entity in infile.entities:
             if entity.dxftype == "LINE":
-                self.do_line(entity)
-        
+                self.addLine(entity)
+            elif entity.dxftype == "ARC":
+                self.addArc(entity)
+            else:
+                print("unknown entity: ", entity.dxftype)
+
         print "Done!"
         
-        self.returnBoundarys = {}
-        for color in self.boundarys:
-            if len(self.boundarys[color]) > 0:
-                print ("returning color ", color)
-                self.returnBoundarys[color] = self.boundarys[color]
-        return {'boundarys':self.returnBoundarys}
+        self.returnColorLayers = {}
+        for color in self.colorLayers:
+            if len(self.colorLayers[color]) > 0:
+                if self.debug:
+                    print ("returning color ", color)
+                self.returnColorLayers[color] = self.colorLayers[color]
+        return {'boundaries':self.returnColorLayers}
 
 
     ################
     # Translate each type of entity (line, circle, arc, lwpolyline)
 
-    def do_line(self, entity):
-        path = [entity.start, entity.end]
-        color = entity.color
-        self.add_path_by_color(color, path)
+    def addLine(self, entity):
+        path = [[entity.start[0], entity.start[1]], [entity.end[0], entity.end[1]]]
+        self.add_path_by_color(entity.color, path)
+
+    def addArc(self, entity):
+        cx = entity.center[0]
+        cy = entity.center[1]
+        r = entity.radius
+        theta1deg = entity.startangle
+        theta2deg = entity.endangle
+        thetadiff = theta2deg - theta1deg
+        if thetadiff < 0 :
+            thetadiff = thetadiff + 360
+        large_arc_flag = int(thetadiff >= 180)
+        sweep_flag = 1
+        theta1 = theta1deg/180.0 * math.pi;
+        theta2 = theta2deg/180.0 * math.pi;
+        x1 = cx + r * math.cos(theta1)
+        y1 = cy + r * math.sin(theta1)
+        x2 = cx + r * math.cos(theta2)
+        y2 = cy + r * math.sin(theta2)
+        path = []
+        self.makeArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
+        if self.debug:
+            print("adding arc color ", entity.color, " path ", path)
+
+        self.add_path_by_color(entity.color, path)
+        
 
     def do_circle(self):
         color = float(self.readgroup(62))
@@ -112,10 +140,10 @@ class DXFParser:
             cy = cy*25.4        
             r = r*25.4  
         path = []
-        self.addArc(path, cx-r, cy, r, r, 0, 0, 0, cx, cy+r)
-        self.addArc(path, cx, cy+r, r, r, 0, 0, 0, cx+r, cy)
-        self.addArc(path, cx+r, cy, r, r, 0, 0, 0, cx, cy-r)
-        self.addArc(path, cx, cy-r, r, r, 0, 0, 0, cx-r, cy)
+        self.makeArc(path, cx-r, cy, r, r, 0, 0, 0, cx, cy+r)
+        self.makeArc(path, cx, cy+r, r, r, 0, 0, 0, cx+r, cy)
+        self.makeArc(path, cx+r, cy, r, r, 0, 0, 0, cx, cy-r)
+        self.makeArc(path, cx, cy-r, r, r, 0, 0, 0, cx-r, cy)
         self.add_path_by_color(color, path)
 
     def do_arc(self):
@@ -140,7 +168,7 @@ class DXFParser:
         x2 = cx + r*math.cos(theta2)
         y2 = cy + r*math.sin(theta2)
         path = []
-        self.addArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
+        self.makeArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
         self.add_path_by_color(color, path)
 
     def do_lwpolyline(self):
@@ -159,19 +187,20 @@ class DXFParser:
 
     def add_path_by_color(self, color, path):
         if color == 1:
-            self.red_boundarys.append(path)
+            self.red_colorLayer.append(path)
         elif color == 2:
-            self.yellow_boundarys.append(path)
+            self.yellow_colorLayer.append(path)
         elif color == 3:
-            self.green_boundarys.append(path)
+            self.green_colorLayer.append(path)
         elif color == 4:
-            self.cyan_boundarys.append(path)
+            self.cyan_colorLayer.append(path)
         elif color == 5:
-            self.blue_boundarys.append(path)
+            self.blue_colorLayer.append(path)
         elif color == 6:
-            self.magenta_boundarys.append(path) 
+            self.magenta_colorLayer.append(path) 
+        #TODO: where does color 256 get defined?
         elif color == 7 or color == 256:
-            self.black_boundarys.append(path)
+            self.black_colorLayer.append(path)
         else:
             print("don't know what to do with color ", color)
             raise ValueError
@@ -185,7 +214,7 @@ class DXFParser:
     def complain_invalid(self):
         print "Skipping unrecognized element '" + self.line + "' on line", self.linecount
 
-    def addArc(self, path, x1, y1, rx, ry, phi, large_arc, sweep, x2, y2):
+    def makeArc(self, path, x1, y1, rx, ry, phi, large_arc, sweep, x2, y2):
         # Implemented based on the SVG implementation notes
         # plus some recursive sugar for incrementally refining the
         # arc resolution until the requested tolerance is met.
