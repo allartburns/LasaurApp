@@ -8,8 +8,8 @@ not supported by any commercial entities, and donations are always welcome.
 
 currently working or in development:
 
-dxf line colors
-dxf units converted to mm
+- dxf line colors
+- dxf units converted to mm
 
 major TODO list:
 - flipping dxf files so that they don't cut face down in the lasersaur
@@ -18,7 +18,7 @@ major TODO list:
 - remapping/reducing dxf color sets down to a set of 0..7
   (which will probably change when we start rasterizing)
 
---- start of LasersauApp official README.md ---
+--- start of LasaurApp official README.md ---
 
 LasaurApp 
 =========
