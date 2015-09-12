@@ -23,7 +23,7 @@ class DXFParser:
     """
 
     def __init__(self, tolerance):
-        self.debug = True
+        self.debug = False
         # tolerance settings, used in tessalation, path simplification, etc         
         self.tolerance = tolerance
         self.tolerance2 = tolerance**2
@@ -72,12 +72,25 @@ class DXFParser:
             print ("DXFGRABBER FAIL")
             raise ValueError
 
+        # set up unit conversion
+        self.units = infile.header.setdefault('$INSUNITS', 1)
+        if self.units == 0:
+            self.unitsString = "undefined, assuming inches"
+        elif self.units == 1:
+            self.unitsString = "inches"
+        elif self.units == 4:
+            self.unitsString = "mm"
+        else:
+            print("DXF units: ", self.units, " unsupported")
+            raise ValueError
+        
         if self.debug:
             print("DXF version: {}".format(infile.dxfversion))
             print("header var count: ", len(infile.header))
             print("layer count: ", len(infile.layers)) 
             print("block def count: ", len(infile.blocks))
             print("entitiy count: ", len(infile.entities))
+            print("units: ", self.unitsString)
 
         for entity in infile.entities:
             if entity.dxftype == "LINE":
@@ -104,20 +117,23 @@ class DXFParser:
                 if self.debug:
                     print ("returning color ", color)
                 self.returnColorLayers[color] = self.colorLayers[color]
-        return {'boundaries':self.returnColorLayers}
-
+        #TODO: teach the UI to report units read in the file
+        return {'boundaries':self.returnColorLayers, 'units':self.unitsString}
 
     ################
     # Translate each type of entity (line, circle, arc, lwpolyline)
 
     def addLine(self, entity):
-        path = [[entity.start[0], entity.start[1]], [entity.end[0], entity.end[1]]]
+        path = [[self.unitize(entity.start[0]),
+                 self.unitize(entity.start[1])],
+                [self.unitize(entity.end[0]),
+                 self.unitize(entity.end[1])]]
         self.add_path_by_color(entity.color, path)
 
     def addArc(self, entity):
-        cx = entity.center[0]
-        cy = entity.center[1]
-        r = entity.radius
+        cx = self.unitize(entity.center[0])
+        cy = self.unitize(entity.center[1])
+        r = self.unitize(entity.radius)
         theta1deg = entity.startangle
         theta2deg = entity.endangle
         thetadiff = theta2deg - theta1deg
@@ -136,9 +152,9 @@ class DXFParser:
         self.add_path_by_color(entity.color, path)
 
     def addCircle(self, entity):
-        cx = entity.center[0]
-        cy = entity.center[1]
-        r = entity.radius
+        cx = self.unitize(entity.center[0])
+        cy = self.unitize(entity.center[1])
+        r = self.unitize(entity.radius)
         path = []
         self.makeArc(path, cx-r, cy, r, r, 0, 0, 0, cx, cy+r)
         self.makeArc(path, cx, cy+r, r, r, 0, 0, 0, cx+r, cy)
@@ -149,7 +165,8 @@ class DXFParser:
     def addPolyLine(self, entity):
         path = []
         for point in entity.points:
-            path.append([point[0], point[1]])
+            path.append([self.unitize(point[0]),
+                        self.unitize(point[1])])
         self.add_path_by_color(entity.color, path)
 
     def add_path_by_color(self, color, path):
@@ -169,8 +186,10 @@ class DXFParser:
         elif color == 7 or color == 256:
             self.black_colorLayer.append(path)
         else:
-            print("don't know what to do with color ", color)
-            raise ValueError
+            #TODO: we need a better way to handle this
+            print("don't know what to do with color ", color, " assigning it to red")
+            self.red_colorLayer.append(path)
+            
 
     def complain_spline(self):
         print "Encountered a SPLINE at line", self.linecount
@@ -259,3 +278,10 @@ class DXFParser:
 
 
     
+    def unitize(self, value):
+        if self.units == 0 or self.units == 1:
+            return value * 25.4
+        elif self.units == 4:
+            return value
+        print ("don't know how to convert units ", units)
+        raise ValueError
