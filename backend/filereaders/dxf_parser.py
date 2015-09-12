@@ -84,6 +84,8 @@ class DXFParser:
                 self.addLine(entity)
             elif entity.dxftype == "ARC":
                 self.addArc(entity)
+            elif entity.dxftype == "CIRCLE":
+                self.addCircle(entity)
             else:
                 print("unknown entity: ", entity.dxftype)
 
@@ -124,52 +126,18 @@ class DXFParser:
         y2 = cy + r * math.sin(theta2)
         path = []
         self.makeArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
-        if self.debug:
-            print("adding arc color ", entity.color, " path ", path)
-
         self.add_path_by_color(entity.color, path)
-        
 
-    def do_circle(self):
-        color = float(self.readgroup(62))
-        cx = float(self.readgroup(10))
-        cy = float(self.readgroup(20))
-        r = float(self.readgroup(40))
-        if self.metricflag == 0:
-            cx = cx*25.4
-            cy = cy*25.4        
-            r = r*25.4  
+    def addCircle(self, entity):
+        cx = entity.center[0]
+        cy = entity.center[1]
+        r = entity.radius
         path = []
         self.makeArc(path, cx-r, cy, r, r, 0, 0, 0, cx, cy+r)
         self.makeArc(path, cx, cy+r, r, r, 0, 0, 0, cx+r, cy)
         self.makeArc(path, cx+r, cy, r, r, 0, 0, 0, cx, cy-r)
         self.makeArc(path, cx, cy-r, r, r, 0, 0, 0, cx-r, cy)
-        self.add_path_by_color(color, path)
-
-    def do_arc(self):
-        color = float(self.readgroup(62))
-        cx = float(self.readgroup(10))
-        cy = float(self.readgroup(20))
-        r = float(self.readgroup(40))
-        if self.metricflag == 0:
-            cx = cx*25.4
-            cy = cy*25.4        
-            r = r*25.4        
-        theta1deg = float(self.readgroup(50))
-        theta2deg = float(self.readgroup(51))
-        thetadiff = theta2deg-theta1deg
-        if thetadiff < 0 : thetadiff = thetadiff + 360
-        large_arc_flag = int(thetadiff >= 180)
-        sweep_flag = 1
-        theta1 = theta1deg/180.0 * math.pi;
-        theta2 = theta2deg/180.0 * math.pi;
-        x1 = cx + r*math.cos(theta1)
-        y1 = cy + r*math.sin(theta1)
-        x2 = cx + r*math.cos(theta2)
-        y2 = cy + r*math.sin(theta2)
-        path = []
-        self.makeArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
-        self.add_path_by_color(color, path)
+        self.add_path_by_color(entity.color, path)
 
     def do_lwpolyline(self):
         color = float(self.readgroup(62))
