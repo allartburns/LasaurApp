@@ -3,8 +3,8 @@ dxfgrabber branch notes
 
 This branch replaces the lasersaur dxf reader with a parser driving
 dxfgrabber.   All new work added by jet is under the existing
-lasersaur licensing.  This work is done on jet's personal time and
-not supported by any commercial entities and donations are always welcome.
+lasersaur licensing.  This work is done on jet's personal time,
+not supported by any commercial entities, and donations are always welcome.
 
 currently working or in development:
 
