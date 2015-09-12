@@ -86,9 +86,16 @@ class DXFParser:
                 self.addArc(entity)
             elif entity.dxftype == "CIRCLE":
                 self.addCircle(entity)
+            elif entity.dxftype == "LWPOLYLINE":
+                self.addPolyLine(entity)
+            elif entity.dxftype == "SPLINE":
+                print("TODO ADD: ", entity.dxftype)
+                #self.addSpline(entity)
             else:
-                print("unknown entity: ", entity.dxftype)
+                if self.debug:
+                    print("unknown entity: ", entity.dxftype)
 
+                
         print "Done!"
         
         self.returnColorLayers = {}
@@ -139,20 +146,11 @@ class DXFParser:
         self.makeArc(path, cx, cy-r, r, r, 0, 0, 0, cx-r, cy)
         self.add_path_by_color(entity.color, path)
 
-    #TODO: find a test case for this
-    def do_lwpolyline(self):
-        color = float(self.readgroup(62))
-        numverts = int(self.readgroup(90))
+    def addPolyLine(self, entity):
         path = []
-        self.add_path_by_color(color, path)
-
-        for i in range(0,numverts):
-            x = float(self.readgroup(10))
-            y = float(self.readgroup(20))
-            if self.metricflag == 0:
-                x = x*25.4
-                y = y*25.4
-            path.append([x,y])
+        for point in entity.points:
+            path.append([point[0], point[1]])
+        self.add_path_by_color(entity.color, path)
 
     def add_path_by_color(self, color, path):
         if color == 1:
