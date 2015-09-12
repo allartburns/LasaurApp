@@ -18,7 +18,7 @@ major TODO list:
 - remapping/reducing dxf color sets down to a set of 0..7
   (which will probably change when we start rasterizing)
 
---- start of LasersauApp official README.md ---
+--- start of LasaurApp official README.md ---
 
 LasaurApp 
 =========
