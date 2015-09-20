@@ -6,13 +6,15 @@ dxfgrabber.   All new work added by jet is under the existing
 lasersaur licensing.  This work is done on jet's personal time,
 not supported by any commercial entities, and donations are always welcome.
 
-currently working or in development:
+Changes:
 
 - dxf line colors
 - dxf units converted to mm
 
-major TODO list:
+TODO list:
 - flipping dxf files so that they don't cut face down in the lasersaur
+- fix circle/arc generation?  Make test file with holes from 1mm to
+  25mm for tests.
 - TEXT YES TEXT I'M WORKING ON THAT DILUTE! DILUTE! OK!
 - more dxf entities
 - remapping/reducing dxf color sets down to a set of 0..7
