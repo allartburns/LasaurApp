@@ -11,8 +11,10 @@ Changes:
 - dxf line colors
 - dxf units converted to mm
 
+In Testing:
+- flip dxf files on the X axis by default
+
 TODO list:
-- flipping dxf files so that they don't cut face down in the lasersaur
 - fix circle/arc generation?  Make test file with holes from 1mm to
   25mm for tests.
 - TEXT YES TEXT I'M WORKING ON THAT DILUTE! DILUTE! OK!

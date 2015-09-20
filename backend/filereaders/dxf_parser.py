@@ -5,7 +5,7 @@
 #
 __author__ = 'jet <jet@allartburns.org>'
 
-import math
+from math import *
 import io
 import StringIO
 
@@ -63,10 +63,17 @@ class DXFParser:
         self.line = ''
         self.dxfcode = ''
 
-    def parse(self, dxfInput):
-        dxfStripped = dxfInput.replace('\r\n','\n')
-        dxfStream = io.StringIO(unicode(dxfStripped.replace('\r\n','\n')))
+        # flip/adjust globals
+        self.cos180 = round(cos(radians(180)))
+        self.sin180 = round(sin(radians(180)))
+        self.x_min = 0.0
+        self.x_max = 0.0
+        self.y_min = 0.0
+        self.y_max = 0.0
         
+    def parse(self, dxfInput):
+        dxfStream = io.StringIO(unicode(dxfInput.replace('\r\n','\n')))
+
         infile = dxfgrabber.read(dxfStream)
         if not infile:
             print ("DXFGRABBER FAIL")
@@ -107,10 +114,18 @@ class DXFParser:
             else:
                 if self.debug:
                     print("unknown entity: ", entity.dxftype)
-
                 
         print "Done!"
-        
+
+        if self.debug:
+            print ("x min ", self.x_min)
+            print ("x max ", self.x_max)
+            print ("y min ", self.y_min)
+            print ("y max ", self.y_max)
+
+        if self.x_min < 0 or self.y_min < 0:
+            self.shiftPositive()
+
         self.returnColorLayers = {}
         for color in self.colorLayers:
             if len(self.colorLayers[color]) > 0:
@@ -141,12 +156,12 @@ class DXFParser:
             thetadiff = thetadiff + 360
         large_arc_flag = int(thetadiff >= 180)
         sweep_flag = 1
-        theta1 = theta1deg/180.0 * math.pi;
-        theta2 = theta2deg/180.0 * math.pi;
-        x1 = cx + r * math.cos(theta1)
-        y1 = cy + r * math.sin(theta1)
-        x2 = cx + r * math.cos(theta2)
-        y2 = cy + r * math.sin(theta2)
+        theta1 = theta1deg/180.0 * pi;
+        theta2 = theta2deg/180.0 * pi;
+        x1 = cx + r * cos(theta1)
+        y1 = cy + r * sin(theta1)
+        x2 = cx + r * cos(theta2)
+        y2 = cy + r * sin(theta2)
         path = []
         self.makeArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
         self.add_path_by_color(entity.color, path)
@@ -170,6 +185,7 @@ class DXFParser:
         self.add_path_by_color(entity.color, path)
 
     def add_path_by_color(self, color, path):
+        path = self.flipPathAxis(path, "X")
         if color == 1:
             self.red_colorLayer.append(path)
         elif color == 2:
@@ -190,7 +206,53 @@ class DXFParser:
             print("don't know what to do with color ", color, " assigning it to red")
             self.red_colorLayer.append(path)
             
+    def flipPathAxis(self, path, axis):
+        x0 = path[0][0]
+        y0 = path[0][1]
+        x1 = path[1][0]
+        y1 = path[1][1]
 
+        xFlip = [[1, 0, 0],
+                 [0, self.cos180, -self.sin180],
+                 [0, self.sin180, self.cos180]]
+        
+        yFlip = [[self.cos180, 0, self.sin180],
+                 [0, 1, 0],
+                 [-self.sin180, 0, self.cos180]]
+        
+        zFlip = [[self.cos180, -self.sin180, 0],
+                 [self.sin180, self.cos180, 0],
+                 [0, 0, 1]]
+        
+
+        #TODO try this using numpy
+        # x = ax + by
+        # y = px + qy
+
+        if axis == 'X':
+            x0p = x0
+            y0p = self.cos180 * y0
+            
+            x1p = x1
+            y1p = self.cos180 * y1
+        elif axis == 'Y':
+            x0p = self.cos180 * x0 
+            y0p = y0
+            
+            x1p = self.cos180 * x1
+            y1p = y1
+        elif axis == 'Z':
+            x0p = self.cos180 * x0  - self.sin180 * y0
+            y0p = self.sin180 * x0 + self.cos180 * y0
+            
+            x1p = self.cos180 * x1  - self.sin180 * y1
+            y1p = self.sin180 * x1 + self.cos180 * y1
+
+        self.checkMinMax(x0p, y0p)
+        self.checkMinMax(x1p, y1p)
+
+        return [[x0p, y0p], [x1p, y1p]]
+    
     def complain_spline(self):
         print "Encountered a SPLINE at line", self.linecount
         print "This program cannot handle splines at present."
@@ -205,8 +267,8 @@ class DXFParser:
         # plus some recursive sugar for incrementally refining the
         # arc resolution until the requested tolerance is met.
         # http://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
-        cp = math.cos(phi)
-        sp = math.sin(phi)
+        cp = cos(phi)
+        sp = sin(phi)
         dx = 0.5 * (x1 - x2)
         dy = 0.5 * (y1 - y2)
         x_ = cp * dx + sp * dy
@@ -214,7 +276,7 @@ class DXFParser:
         r2 = ((rx*ry)**2-(rx*y_)**2-(ry*x_)**2) / ((rx*y_)**2+(ry*x_)**2)
         if r2 < 0:
             r2 = 0
-        r = math.sqrt(r2)
+        r = sqrt(r2)
         if large_arc == sweep:
             r = -r
         cx_ = r*rx*y_ / ry
@@ -223,8 +285,8 @@ class DXFParser:
         cy = sp*cx_ + cp*cy_ + 0.5*(y1 + y2)
         
         def _angle(u, v):
-            a = math.acos((u[0]*v[0] + u[1]*v[1]) /
-                            math.sqrt(((u[0])**2 + (u[1])**2) *
+            a = acos((u[0]*v[0] + u[1]*v[1]) /
+                            sqrt(((u[0])**2 + (u[1])**2) *
                             ((v[0])**2 + (v[1])**2)))
             sgn = -1
             if u[0]*v[1] > u[1]*v[0]:
@@ -234,14 +296,14 @@ class DXFParser:
         psi = _angle([1,0], [(x_-cx_)/rx, (y_-cy_)/ry])
         delta = _angle([(x_-cx_)/rx, (y_-cy_)/ry], [(-x_-cx_)/rx, (-y_-cy_)/ry])
         if sweep and delta < 0:
-            delta += math.pi * 2
+            delta += pi * 2
         if not sweep and delta > 0:
-            delta -= math.pi * 2
+            delta -= pi * 2
         
         def _getVertex(pct):
             theta = psi + delta * pct
-            ct = math.cos(theta)
-            st = math.sin(theta)
+            ct = cos(theta)
+            st = sin(theta)
             return [cp*rx*ct-sp*ry*st+cx, sp*rx*ct+cp*ry*st+cy]        
         
         # let the recursive fun begin
@@ -276,7 +338,35 @@ class DXFParser:
         _recursiveArc(t1Init, t2Init, c1Init, c5Init, 0, self.tolerance2)
         path.append(c5Init)
 
+    def shiftPositive(self):
+        xShift = 0;
+        yShift = 0;
+        if self.x_min < 0:
+            xShift = - self.x_min
+        if self.y_min < 0:
+            yShift = - self.y_min
 
+        for color in self.colorLayers:
+            if len(self.colorLayers[color]) > 0:
+                thisColor = self.colorLayers[color]
+                for i in range(0, len(thisColor)):
+                    thisColor[i][0][0] += xShift
+                    thisColor[i][0][1] += yShift
+                    thisColor[i][1][0] += xShift
+                    thisColor[i][1][1] += yShift
+
+
+    def checkMinMax(self, x, y):
+        if x < self.x_min:
+            self.x_min = x
+        elif x > self.x_max:
+            self.x_max = x
+            
+        if y < self.y_min:
+            self.y_min = y
+        elif y > self.y_max:
+            self.y_max = y
+            
     
     def unitize(self, value):
         if self.units == 0 or self.units == 1:
