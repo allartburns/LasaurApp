@@ -10,6 +10,7 @@ Changes:
 
 - dxf line colors
 - dxf units converted to mm
+- flip dxf files on the X axis by default
 
 In Testing:
 - flip dxf files on the X axis by default
