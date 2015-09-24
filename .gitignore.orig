@@ -1,0 +1,8 @@
+*.pyc
+*.pyo
+*.DS_Store
+<<<<<<< HEAD
+
+userconfig.py
+=======
+>>>>>>> 8e87b74d23623813aa4f88a7a71881036458801b

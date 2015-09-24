@@ -23,14 +23,14 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 #include <avr/sleep.h>
-#include <avr/pgmspace.h>
 #include <math.h>
 #include "serial.h"
 #include "config.h"
 #include "stepper.h"
-#include "protocol.h"
+#include "gcode.h"
 
-
+#define CHAR_STOP '!'
+#define CHAR_RESUME '~'
 
 /** ring buffer **********************************
 * [_][h][e][l][l][o][_][_][_] -> wrap around     *
@@ -54,11 +54,6 @@ uint8_t tx_buffer[TX_BUFFER_SIZE];
 volatile uint8_t tx_buffer_head = 0;
 volatile uint8_t tx_buffer_tail = 0;
 
-bool first_transmission = true;
-uint8_t data_prev = 0;
-
-bool buffer_underrun_marked = false;
-
 /** protocol *************************************
 * The sending app initiates any stream by        *
 * requesting a ready byte. This serial code then *
@@ -68,13 +63,12 @@ bool buffer_underrun_marked = false;
 * Thereafter it can again request a ready byte   *
 * and apon receiving it send the next chunk.     *
 *************************************************/
+#define CHAR_READY '\x12'
+#define CHAR_REQUEST_READY '\x14'
 #define RX_CHUNK_SIZE 16
-volatile bool notify_chunk_processed = false;
-uint8_t rx_buffer_processed = 0;
+volatile uint8_t send_ready_flag = 0;
+volatile uint8_t request_ready_flag = 0;
 
-volatile bool raster_mode = false;
-
-uint8_t serial_read();
 
 
 static void set_baud_rate(long baud) {
@@ -99,50 +93,37 @@ void serial_init() {
   UCSR0B |= 1<<RXCIE0;
 	  
 	// defaults to 8-bit, no parity, 1 stop bit
-
-  serial_write(INFO_HELLO);
+	
+  printPgmString(PSTR("# LasaurGrbl " LASAURGRBL_VERSION));
+  printPgmString(PSTR("\n"));
 }
 
 
 
-inline void serial_write(uint8_t data) {
-  // Calculate next head
-  uint8_t next_head = tx_buffer_head + 1;
-  if (next_head == TX_BUFFER_SIZE) { next_head = 0; }  // wrap around
+void serial_write(uint8_t data) {
+    // Calculate next head
+    uint8_t next_head = tx_buffer_head + 1;
+    if (next_head == TX_BUFFER_SIZE) { next_head = 0; }  // wrap around
 
-  // wait, if buffer is full
-  while (next_head == tx_buffer_tail) {
-    // sleep_mode();
-    // protocol_idle();  // don't call, may turn recursive
-  }
+    // wait, if buffer is full
+    while (next_head == tx_buffer_tail) {
+      // sleep_mode();
+    }
 
-  // Store data and advance head
-  tx_buffer[tx_buffer_head] = data;
-  tx_buffer_head = next_head;
-  
-	UCSR0B |=  (1 << UDRIE0);  // enable tx interrupt 
+    // Store data and advance head
+    tx_buffer[tx_buffer_head] = data;
+    tx_buffer_head = next_head;
+    
+  	UCSR0B |=  (1 << UDRIE0);  // enable tx interrupt  
 }
-
-
-inline void serial_write_param(uint8_t param, double val) {
-  // val to be [-134217.728, 134217.727]
-  // three decimals are retained
-  int32_t numint = lround(val*1000)+134217728L;
-  serial_write((numint&127UL)+128);
-  serial_write(((numint&(127UL<<7))>>7)+128);
-  serial_write(((numint&(127UL<<14))>>14)+128);
-  serial_write(((numint&(127UL<<21))>>21)+128);
-  serial_write(param);
-}
-
 
 // tx interrupt, called when UDR0 gets empty
 SIGNAL(USART_UDRE_vect) {
   uint8_t tail = tx_buffer_tail;  // optimize for volatile
   
-  if (notify_chunk_processed) {
-    UDR0 = CMD_CHUNK_PROCESSED ;
-    notify_chunk_processed = false;
+  if (send_ready_flag) {    // request another chunk of data
+    UDR0 = CHAR_READY;
+    send_ready_flag = 0;
   } else {                    // Send a byte from the buffer 
     UDR0 = tx_buffer[tail];
     if (++tail == TX_BUFFER_SIZE) {tail = 0;}  // increment
@@ -154,59 +135,53 @@ SIGNAL(USART_UDRE_vect) {
 }
 
 
-inline uint8_t serial_read() {
-  // return data, advance tail
-  uint8_t data = rx_buffer[rx_buffer_tail];
-  if (++rx_buffer_tail == RX_BUFFER_SIZE) {rx_buffer_tail = 0;}  // increment  
-  rx_buffer_open_slots++;
-  // ATOMIC_BLOCK(ATOMIC_FORCEON) {
-    rx_buffer_processed++;
-    if (rx_buffer_processed == RX_CHUNK_SIZE) {
-      notify_chunk_processed = true;
-      UCSR0B |=  (1 << UDRIE0);  // enable tx interrupt
-      rx_buffer_processed = 0;
-    }
-  // }
-  return data;
-}
 
+uint8_t serial_read() {
+  // wait, if buffer is empty
+  while (rx_buffer_tail == rx_buffer_head) {
+    // sleep_mode();
+  }
+  // return return data, advance tail
+	uint8_t data = rx_buffer[rx_buffer_tail];
+  if (++rx_buffer_tail == RX_BUFFER_SIZE) {rx_buffer_tail = 0;}  // increment
+  ATOMIC_BLOCK(ATOMIC_FORCEON) {
+    if (rx_buffer_open_slots == RX_CHUNK_SIZE) {  // enough slots opening up
+      if (request_ready_flag) {
+        send_ready_flag = 1;
+        UCSR0B |=  (1 << UDRIE0);  // enable tx interrupt  
+        request_ready_flag = 0;
+      }
+    }    
+    rx_buffer_open_slots++;
+  }
+	return data;
+}
 
 // rx interrupt, called whenever a new byte is in UDR0
 SIGNAL(USART_RX_vect) {
   uint8_t data = UDR0;
-  // transmission error check
-  if (first_transmission) {  // ignore data
-    first_transmission = false;
-    data_prev = data;
-    return;
-  } else {  // use, but check with previous
-    first_transmission = true;
-    if (data != data_prev) {
-      stepper_request_stop(STOPERROR_TRANSMISSION_ERROR);
-    }
-  }
-  // handle char
-  if (data < 32) {  // handle controls chars
-    if (data == CMD_STOP) {
-      // special stop character, bypass buffer
-      stepper_request_stop(STOPERROR_SERIAL_STOP_REQUEST);
-    } else if (data == CMD_RESUME) {
-      // special resume character, bypass buffer
-      stepper_stop_resume();
-    } else if (data == CMD_STATUS) {
-      protocol_request_status();
-    } else if (data == CMD_SUPERSTATUS) {
-      protocol_request_superstatus();
+  if (data == CHAR_STOP) {
+    // special stop character, bypass buffer
+    stepper_request_stop(STATUS_SERIAL_STOP_REQUEST);
+  } else if (data == CHAR_RESUME) {
+    // special resume character, bypass buffer
+    stepper_stop_resume();
+  } else if (data == CHAR_REQUEST_READY) {
+    if (rx_buffer_open_slots > RX_CHUNK_SIZE) {
+      send_ready_flag = 1;
+      UCSR0B |=  (1 << UDRIE0);  // enable tx interrupt 
     } else {
-      stepper_request_stop(STOPERROR_INVALID_MARKER);
+      // send ready when enough slots open up
+      request_ready_flag = 1;
     }
   } else {
     uint8_t head = rx_buffer_head;  // optimize for volatile    
     uint8_t next_head = head + 1;
     if (next_head == RX_BUFFER_SIZE) {next_head = 0;}
+
     if (next_head == rx_buffer_tail) {
       // buffer is full, other side sent too much data
-      stepper_request_stop(STOPERROR_RX_BUFFER_OVERFLOW);
+      stepper_request_stop(STATUS_RX_BUFFER_OVERFLOW);
     } else {
       rx_buffer[head] = data;
       rx_buffer_head = next_head;
@@ -216,162 +191,77 @@ SIGNAL(USART_RX_vect) {
 }
 
 
-inline uint8_t serial_protocol_read() {
-  // called from protocol loop
-  while (raster_mode) {
-    // Block while in raster mode.
-    // In this mode the serial inerrupt provides data
-    // in the rx_buffer which get directly consumed
-    // by the stepper interrupt.
-    // sleep_mode();  // sleep a tiny bit
-    protocol_idle();
-  }
-  // wait, buffer empty
-  buffer_underrun_marked = false;
-  while (rx_buffer_tail == rx_buffer_head) {
-    // sleep_mode();
-    if (!buffer_underrun_marked) {
-      protocol_mark_underrun();
-      buffer_underrun_marked = true;
-    }
-    protocol_idle();
-  }
-  // we have non-raster data
-  uint8_t data = serial_read();
-  if (data == CMD_RASTER_DATA_START) {
-    raster_mode = true;
-    // comsume the byte, return next non-raster byte
-    // wait, raster mode
-    while (raster_mode) {
-      // sleep_mode();
-      protocol_idle();
-    }
-    // wait, buffer empty
-    buffer_underrun_marked = false;
-    while (rx_buffer_tail == rx_buffer_head) {
-      // sleep_mode();
-      if (!buffer_underrun_marked) {
-        protocol_mark_underrun();
-        buffer_underrun_marked = true;
-      }
-      protocol_idle();
-    }
-    // back to normal mode
-    return serial_read();
-  } else {
-    return data;
-  }
+uint8_t serial_available() {
+  return RX_BUFFER_SIZE - rx_buffer_open_slots;
 }
 
 
-inline uint8_t serial_raster_read() {
-  /** raster buffer ********************************
-  * The rx_buffer doubles as a raster buffer. This *
-  * depends on the right sequence of commands:     *
-  * accel-line, raster-line, decel-line            *
-  * and then streaming of raster-data.             *
-  * serial_protocol_read enters the raster_mode    *
-  * serial_raster_read exits it. During the raster *
-  * streaming serial_protocol_read is blocking and *
-  * serial_raster_read gets called from the        *
-  * interrupt while executing the raster line.     *
-  * To exit the raster_mode, all the raster data   *
-  * and one more needs to be read.                 *
-  *************************************************/
-  // called from stepper interrupt
-  if (raster_mode) {
-    if (rx_buffer_tail == rx_buffer_head) {
-      // oops, no raster data, sending side is flaking
-      // rastering too fast or serial transmission too slow
-      protocol_mark_underrun();
-      return 0;
-    } else {
-      uint8_t data = serial_read();
-      if (data == CMD_RASTER_DATA_END) {
-        raster_mode = false;
-        return 0;
-      } else {
-        return data;
-      }
-    }
-  } else {
-    // oops, not even in raster mode
-    // sending side seems to be flaking
-    return 0;
+
+void printString(const char *s) {
+  while (*s) {
+    serial_write(*s++);
   }
 }
 
-
-inline uint8_t serial_data_available() {
-  return rx_buffer_tail != rx_buffer_head;
+// Print a string stored in PGM-memory
+void printPgmString(const char *s) {
+  char c;
+  while ((c = pgm_read_byte_near(s++))) {
+    serial_write(c);
+  }
 }
 
+void printIntegerInBase(unsigned long n, unsigned long base) {
+  unsigned char buf[8 * sizeof(long)]; // Assumes 8-bit chars.
+  unsigned long i = 0;
 
-// void printString(const char *s) {
-//   while (*s) {
-//     serial_write(*s++);
-//   }
-// }
+  if (n == 0) {
+    serial_write('0');
+    return;
+  }
 
-// // Print a string stored in PGM-memory
-// void printPgmString(const char *s) {
-//   char c;
-//   while ((c = pgm_read_byte_near(s++))) {
-//     serial_write(c);
-//   }
-// }
+  while (n > 0) {
+    buf[i++] = n % base;
+    n /= base;
+  }
 
-// void printIntegerInBase(unsigned long n, unsigned long base) {
-//   unsigned char buf[8 * sizeof(long)]; // Assumes 8-bit chars.
-//   unsigned long i = 0;
+  for (; i > 0; i--) {
+    serial_write(buf[i - 1] < 10 ?
+    '0' + buf[i - 1] :
+    'A' + buf[i - 1] - 10);
+  }
+}
 
-//   if (n == 0) {
-//     serial_write('0');
-//     return;
-//   }
+void printInteger(long n) {
+  if (n < 0) {
+    serial_write('-');
+    n = -n;
+  }
 
-//   while (n > 0) {
-//     buf[i++] = n % base;
-//     n /= base;
-//   }
+  printIntegerInBase(n, 10);
+}
 
-//   for (; i > 0; i--) {
-//     serial_write(buf[i - 1] < 10 ?
-//     '0' + buf[i - 1] :
-//     'A' + buf[i - 1] - 10);
-//   }
-// }
-
-// void printInteger(long n) {
-//   if (n < 0) {
-//     serial_write('-');
-//     n = -n;
-//   }
-
-//   printIntegerInBase(n, 10);
-// }
-
-// void printFloat(double n) {
-//   if (n < 0) {
-//     serial_write('-');
-//     n = -n;
-//   }
-//   n += 0.5/1000; // Add rounding factor
+void printFloat(double n) {
+  if (n < 0) {
+    serial_write('-');
+    n = -n;
+  }
+  n += 0.5/1000; // Add rounding factor
  
-//   long integer_part;
-//   integer_part = (int)n;
-//   printIntegerInBase(integer_part,10);
+  long integer_part;
+  integer_part = (int)n;
+  printIntegerInBase(integer_part,10);
   
-//   serial_write('.');
+  serial_write('.');
   
-//   n -= integer_part;
-//   int decimals = 3;
-//   uint8_t decimal_part;
-//   while(decimals-- > 0) {
-//     n *= 10;
-//     decimal_part = (int) n;
-//     serial_write('0'+decimal_part);
-//     n -= decimal_part;
-//   }
-// }
+  n -= integer_part;
+  int decimals = 3;
+  uint8_t decimal_part;
+  while(decimals-- > 0) {
+    n *= 10;
+    decimal_part = (int) n;
+    serial_write('0'+decimal_part);
+    n -= decimal_part;
+  }
+}
 
