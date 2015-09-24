@@ -21,7 +21,8 @@ def read_svg(svg_string, target_size, tolerance, forced_dpi=None, optimize=True)
     return parse_results
 
 
-def read_dxf(dxf_string, tolerance, optimize=True):
+#def read_dxf(dxf_string, tolerance, optimize=True):
+def read_dxf(dxf_string, tolerance, optimize=False):
     dxfParser = DXFParser(tolerance)
     parse_results = dxfParser.parse(dxf_string)
     if optimize:
