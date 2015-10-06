@@ -82,17 +82,17 @@ class DXFParser:
             raise ValueError
 
         # set up unit conversion
-        self.units = infile.header.setdefault('$INSUNITS', 1)
+        self.units = infile.header.setdefault('$INSUNITS', 0)
         if self.debug:
-            print("dxf units", self.units)
+            print("dxf units read %s, default 0 " % self.units)
         if self.units == 0:
-            self.unitsString = "undefined, assuming inches"
+            self.unitsString = "unitless"
         elif self.units == 1:
             self.unitsString = "inches"
         elif self.units == 4:
             self.unitsString = "mm"
         else:
-            print("DXF units: ", self.units, " unsupported")
+            print("DXF units: >%s< unsupported" % self.units)
             raise ValueError
         
         if self.debug:
