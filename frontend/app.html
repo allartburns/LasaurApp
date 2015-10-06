@@ -326,7 +326,24 @@
                                     <!-- log -->
                                 </div>
                             </div> <!-- end of log tab -->
-
+                            <!--  START   CUSTOM GCODE TAB -->
+                            <!-- orig author jondale@jondale.net -->
+                            <div id='tab_gcode' class='tab-pane'>
+                              <div id='gcode_content'>
+                                <textarea id='gcode_edit' style='clear:both; width: 900px;' rows=20></textarea>
+                                <button id="gcode_submit" class="btn btn-large btn-primary">Send to Lasersaur</button>
+                              </div>
+                            </div>
+                            <script>
+                              $('.tabs-left ul').append('<li><a href="#tab_gcode" id="tab_gcode_button" data-toggle="tab"><i class="icon-exclamation-sign" style="margin-right:2px"></i> Gcode</a></li>');
+                              $("#gcode_submit").click(function(e) {
+                              var gcode = $('#gcode_edit').val();
+                              if (gcode){
+                              send_gcode(gcode, "G-Code sent to backend.", true);
+                              }
+                              });
+                            </script>
+                                <!-- END      CUSTOM GCODE TAB -->
                             <!--content end-->
                         </div>
                     </div>

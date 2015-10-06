@@ -23,11 +23,13 @@ class DXFParser:
     """
 
     def __init__(self, tolerance):
-        self.debug = False
+        self.debug = True
         # tolerance settings, used in tessalation, path simplification, etc         
         self.tolerance = tolerance
         self.tolerance2 = tolerance**2
 
+        self.bedwidth = [1220, 610]
+        
         # parsed path data, paths by color
         # {'#ff0000': [[path0, path1, ..], [path0, ..], ..]}
         # Each path is a list of vertices which is a list of two floats.        
@@ -81,6 +83,8 @@ class DXFParser:
 
         # set up unit conversion
         self.units = infile.header.setdefault('$INSUNITS', 1)
+        if self.debug:
+            print("dxf units", self.units)
         if self.units == 0:
             self.unitsString = "undefined, assuming inches"
         elif self.units == 1:
@@ -114,7 +118,7 @@ class DXFParser:
             else:
                 if self.debug:
                     print("unknown entity: ", entity.dxftype)
-                
+
         print "Done!"
 
         if self.debug:
@@ -124,7 +128,10 @@ class DXFParser:
             print ("y max ", self.y_max)
 
         if self.x_min < 0 or self.y_min < 0:
+            print("doing shiftPositive")
             self.shiftPositive()
+
+        self.validateBoundaries()
 
         self.returnColorLayers = {}
         for color in self.colorLayers:
@@ -185,33 +192,32 @@ class DXFParser:
         self.add_path_by_color(entity.color, path)
 
     def add_path_by_color(self, color, path):
-        path = self.flipPathAxis(path, "X")
+        flippedPath = self.flipPathAxis(path, "X")
+        if flippedPath == path:
+            print("caution: flippedPath %s == path %s" % (flippedPath, path))
         if color == 1:
-            self.red_colorLayer.append(path)
+            self.red_colorLayer.append(flippedPath)
         elif color == 2:
-            self.yellow_colorLayer.append(path)
+            self.yellow_colorLayer.append(flippedPath)
         elif color == 3:
-            self.green_colorLayer.append(path)
+            self.green_colorLayer.append(flippedPath)
         elif color == 4:
-            self.cyan_colorLayer.append(path)
+            self.cyan_colorLayer.append(flippedPath)
         elif color == 5:
-            self.blue_colorLayer.append(path)
+            self.blue_colorLayer.append(flippedPath)
         elif color == 6:
-            self.magenta_colorLayer.append(path) 
+            self.magenta_colorLayer.append(flippedPath) 
         #TODO: where does color 256 get defined?
         elif color == 7 or color == 256:
-            self.black_colorLayer.append(path)
+            self.black_colorLayer.append(flippedPath)
         else:
             #TODO: we need a better way to handle this
-            print("don't know what to do with color ", color, " assigning it to red")
-            self.red_colorLayer.append(path)
+            #don't know what to do with this color, assigning to red/cut
+            self.red_colorLayer.append(flippedPath)
             
     def flipPathAxis(self, path, axis):
-        x0 = path[0][0]
-        y0 = path[0][1]
-        x1 = path[1][0]
-        y1 = path[1][1]
-
+        flippedPath = []
+        
         xFlip = [[1, 0, 0],
                  [0, self.cos180, -self.sin180],
                  [0, self.sin180, self.cos180]]
@@ -224,34 +230,21 @@ class DXFParser:
                  [self.sin180, self.cos180, 0],
                  [0, 0, 1]]
         
+        for x, y in path:
+            if axis == 'X':
+                x1 = x
+                y1 = self.cos180 * y
+            elif axis == 'Y':
+                x1 = self.cos180 * x
+                y1 = y
+            elif axis == 'Z':
+                x1 = self.cos180 * x - self.sin180 * y
+                y1 = self.sin180 * x + self.cos180 * y
+            self.setMinMax(x1, y1)
+            flippedPath.append([x1, y1])
 
-        #TODO try this using numpy
-        # x = ax + by
-        # y = px + qy
+        return flippedPath
 
-        if axis == 'X':
-            x0p = x0
-            y0p = self.cos180 * y0
-            
-            x1p = x1
-            y1p = self.cos180 * y1
-        elif axis == 'Y':
-            x0p = self.cos180 * x0 
-            y0p = y0
-            
-            x1p = self.cos180 * x1
-            y1p = y1
-        elif axis == 'Z':
-            x0p = self.cos180 * x0  - self.sin180 * y0
-            y0p = self.sin180 * x0 + self.cos180 * y0
-            
-            x1p = self.cos180 * x1  - self.sin180 * y1
-            y1p = self.sin180 * x1 + self.cos180 * y1
-
-        self.checkMinMax(x0p, y0p)
-        self.checkMinMax(x1p, y1p)
-
-        return [[x0p, y0p], [x1p, y1p]]
     
     def complain_spline(self):
         print "Encountered a SPLINE at line", self.linecount
@@ -338,25 +331,51 @@ class DXFParser:
         _recursiveArc(t1Init, t2Init, c1Init, c5Init, 0, self.tolerance2)
         path.append(c5Init)
 
-    def shiftPositive(self):
-        xShift = 0;
-        yShift = 0;
-        if self.x_min < 0:
-            xShift = - self.x_min
-        if self.y_min < 0:
-            yShift = - self.y_min
-
+    def validateBoundaries(self):
         for color in self.colorLayers:
             if len(self.colorLayers[color]) > 0:
                 thisColor = self.colorLayers[color]
                 for i in range(0, len(thisColor)):
-                    thisColor[i][0][0] += xShift
-                    thisColor[i][0][1] += yShift
-                    thisColor[i][1][0] += xShift
-                    thisColor[i][1][1] += yShift
+                    if thisColor[i][0][0] < 0 or thisColor[i][0][0] > self.bedwidth[0]:
+                        print("WARN: outside of bounds x0 ",  thisColor[i])
+                        raise ValueError
+                    elif thisColor[i][0][1] < 0 or thisColor[i][0][1] > self.bedwidth[1]:
+                        print("WARN: outside of bounds y0 ",  thisColor[i])
+                        raise ValueError
+                    elif thisColor[i][1][0] < 0 or thisColor[i][1][0] > self.bedwidth[0]:
+                        print("WARN: outside of bounds x1 ",  thisColor[i])
+                        raise ValueError
+                    elif thisColor[i][1][1] < 0 or thisColor[i][1][1] > self.bedwidth[1]:
+                        print("WARN: outside of bounds y1 ",  thisColor[i])
+                        raise ValueError
+        
+
+    def shiftPositive(self):
+        xShift = 0;
+        yShift = 0;
+        if self.x_min < 0:
+            xShift = 0.0 - self.x_min
+            print("x_min", self.x_min)
+            print("x_max", self.x_max)
+            print("xShift", xShift)
+        if self.y_min < 0:
+            yShift = 0.0 - self.y_min
+            print("y_min", self.y_min)
+            print("y_max", self.y_max)
+            print("yShift", yShift)
+
+        for color in self.colorLayers:
+            if len(self.colorLayers[color]) > 0:
+                thisColor = self.colorLayers[color]
+                for line in range(0, len(thisColor)):
+                    i = 0
+                    for x, y in thisColor[line]:
+                        thisColor[line][i][0] = x + xShift
+                        thisColor[line][i][1] = y + yShift
+                        i += 1
 
 
-    def checkMinMax(self, x, y):
+    def setMinMax(self, x, y):
         if x < self.x_min:
             self.x_min = x
         elif x > self.x_max:
@@ -366,8 +385,8 @@ class DXFParser:
             self.y_min = y
         elif y > self.y_max:
             self.y_max = y
-            
-    
+
+
     def unitize(self, value):
         if self.units == 0 or self.units == 1:
             return value * 25.4
