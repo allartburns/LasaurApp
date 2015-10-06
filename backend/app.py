@@ -457,6 +457,7 @@ def reset_atmega_handler():
 
 @route('/gcode', method='POST')
 def job_submit_handler():
+    os.system("/bin/sync; /bin/sync; /bin/sync")
     job_data = request.forms.get('job_data')
     if job_data and SerialManager.is_connected():
         SerialManager.queue_gcode(job_data)
