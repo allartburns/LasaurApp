@@ -217,6 +217,19 @@ $(document).ready(function(){
     $('#svg_upload_file').trigger('click');
     return false;
   });
+  // dxf workaround similar to SVG dpi issue
+  // $('#dxf_import_mm_btn').click(function(e){
+  //   path_optimize = 1;
+  //   dxf_unit = 4
+  //   $('#dxf_upload_file').trigger('click');
+  //   return false;
+  // });
+  // $('#dxf_import_in_btn').click(function(e){
+  //   path_optimize = 1;
+  //   dxf_unit = 1
+  //   $('#dxf_upload_file').trigger('click');
+  //   return false;
+  // });
   $('#svg_import_nop_btn').click(function(e){
     path_optimize = 0;
     $('#svg_upload_file').trigger('click');
