@@ -111,19 +111,32 @@ DataHandler = {
       for (var c=0; c<colors.length; c++) {
         var color = colors[c];
         var paths = this.paths_by_color[color];
+        var prevX = -1.0;
+        var prevY = -1.0;
         for (var k=0; k<paths.length; k++) {
           var path = paths[k];
           if (path.length > 0) {
             var vertex = 0;
-            var x = path[vertex][0];
-            var y = path[vertex][1];
-            glist.push("G0X"+x.toFixed(app_settings.num_digits)+
-                         "Y"+y.toFixed(app_settings.num_digits)+"\n");
+              var x = path[vertex][0];
+              var y = path[vertex][1];
+              if ((prevX == x) && (prevY == y)) {
+                  $().uxmessage('notice', "skipped G0");
+                  //glist.push("(G0X"+x.toFixed(app_settings.num_digits)+
+                  //       "Y"+y.toFixed(app_settings.num_digits)+")\n");
+              }
+              else {
+                  glist.push("G0X"+x.toFixed(app_settings.num_digits)+
+                             "Y"+y.toFixed(app_settings.num_digits)+"\n");
+              }
+              prevX = x;
+              prevY = y;
             for (vertex=1; vertex<path.length; vertex++) {
               var x = path[vertex][0];
               var y = path[vertex][1];
               glist.push("G1X"+x.toFixed(app_settings.num_digits)+
                            "Y"+y.toFixed(app_settings.num_digits)+"\n");
+                prevX = x;
+                prevY = y;
             }
           }      
         }
