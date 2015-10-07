@@ -121,6 +121,8 @@ DataHandler = {
               var y = path[vertex][1];
               if ((prevX == x) && (prevY == y)) {
                   $().uxmessage('notice', "skipped G0");
+                  // comment character is "(" but we don't want
+                  // lasersaur wasting time parsing comments
                   //glist.push("(G0X"+x.toFixed(app_settings.num_digits)+
                   //       "Y"+y.toFixed(app_settings.num_digits)+")\n");
               }
