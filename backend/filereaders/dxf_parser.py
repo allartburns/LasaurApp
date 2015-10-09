@@ -68,10 +68,11 @@ class DXFParser:
         # flip/adjust globals
         self.cos180 = round(cos(radians(180)))
         self.sin180 = round(sin(radians(180)))
-        self.x_min = 0.0
+        self.x_min = 1220.0
         self.x_max = 0.0
         self.y_min = 0.0
-        self.y_max = 0.0
+	#because the y bed is inverted and we are going to flip it
+        self.y_max = -610.0
         
     def parse(self, dxfInput):
         dxfStream = io.StringIO(unicode(dxfInput.replace('\r\n','\n')))
@@ -354,12 +355,12 @@ class DXFParser:
         xShift = 0;
         yShift = 0;
         if self.x_min < 0:
-            xShift = 0.0 - self.x_min
+            xShift = 0.0 - self.x_min - self.x_max
             print("x_min", self.x_min)
             print("x_max", self.x_max)
             print("xShift", xShift)
         if self.y_min < 0:
-            yShift = 0.0 - self.y_min
+            yShift = 0.0 - self.y_min - self.y_max
             print("y_min", self.y_min)
             print("y_max", self.y_max)
             print("yShift", yShift)
