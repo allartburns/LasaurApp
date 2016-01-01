@@ -25,7 +25,7 @@ TODO list:
 
 --- start of LasaurApp official README.md ---
 
-LasaurApp 
+LasaurApp
 =========
 
 LasaurApp is the official [Lasersaur](http://lasersaur.com) app. It has all the functionality to operate this kind of laser cutter:
@@ -85,3 +85,8 @@ For other USB devices thee following may be useful too:
 - sudo kextunload -b com.apple.driver.AppleUSBCDCWCM
 - sudo kextunload -b com.apple.driver.AppleUSBCDCACMData
 - sudo kextunload -b com.apple.driver.AppleUSBCDCACMControl
+=======
+lasersaur
+=========
+
+Lasersaur -- open source laser cutter
