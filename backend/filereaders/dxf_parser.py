@@ -83,13 +83,13 @@ class DXFParser:
     def parse(self, dxfInput):
         dxfStream = io.StringIO(unicode(dxfInput.replace('\r\n','\n')))
 
-        infile = dxfgrabber.read(dxfStream)
-        if not infile:
+        dwg = dxfgrabber.read(dxfStream)
+        if not dwg:
             print ("DXFGRABBER FAIL")
             raise ValueError
 
         # set up unit conversion
-        self.units = infile.header.setdefault('$INSUNITS', 0)
+        self.units = dwg.header.setdefault('$INSUNITS', 0)
         if self.verbose:
             print("dxf units read %s, default 0 " % self.units)
         if self.units == 0:
@@ -104,14 +104,20 @@ class DXFParser:
             raise ValueError
         
         if self.verbose:
-            print("DXF version: {}".format(infile.dxfversion))
-            print("header var count: ", len(infile.header))
-            print("layer count: ", len(infile.layers)) 
-            print("block def count: ", len(infile.blocks))
-            print("entitiy count: ", len(infile.entities))
+            print("DXF version: {}".format(dwg.dxfversion))
+            print("header var count: ", len(dwg.header))
+            print("layer count: ", len(dwg.layers)) 
+            print("block def count: ", len(dwg.blocks))
+            print("entitiy count: ", len(dwg.entities))
             print("units: ", self.unitsString)
 
-        for entity in infile.entities:
+        for entity in dwg.entities:
+            if entity.color == dxfgrabber.BYLAYER:
+                layer = dwg.layers[entity.layer]
+                entity.color = layer.color
+                if self.debug:
+                    print("set entity color to layer color %d" % layer.color)
+
             if entity.dxftype == "LINE":
                 self.addLine(entity)
             elif entity.dxftype == "ARC":
@@ -216,10 +222,11 @@ class DXFParser:
             self.blue_colorLayer.append(flippedPath)
         elif color == 6:
             self.magenta_colorLayer.append(flippedPath) 
-        #TODO: where does color 256 get defined?
-        elif color == 7 or color == 256:
+        elif color == 7:
             self.black_colorLayer.append(flippedPath)
         else:
+            if self.verbose:
+                print("unrecognized color %d, setting to red" & color)
             #TODO: we need a better way to handle this
             #don't know what to do with this color, assigning to red/cut
             self.red_colorLayer.append(flippedPath)
