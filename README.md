@@ -8,9 +8,9 @@ not supported by any commercial entities, and donations are always welcome.
 
 Changes:
 
-- dxf line colors
+- dxf line colors from entity or entity layer
 - dxf units converted to mm
-- flip dxf files on the X axis by default
+- flip dxf files on the Y axis by default
 
 In Testing:
 - flip dxf files on the X axis by default
