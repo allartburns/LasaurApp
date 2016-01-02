@@ -23,7 +23,8 @@ class DXFParser:
     """
 
     def __init__(self, tolerance):
-        self.debug = True
+        self.debug = False
+        self.verbose = True
         # tolerance settings, used in tessalation, path simplification, etc         
         self.tolerance = tolerance
         self.tolerance2 = tolerance**2
@@ -60,7 +61,12 @@ class DXFParser:
         self.magenta_colorLayer = self.colorLayers['#CC33CC']
         self.black_colorLayer = self.colorLayers['#000000']
         
+        #assume we're reading metric files and that
+        #we round to four decimal places.  There is no Lasersaur
+        # that can move from [60, 20] to 
+        # [60.00000000000001, 20.00000000000002]
         self.metricflag = 1
+        self.round = 4
         self.linecount = 0
         self.line = ''
         self.dxfcode = ''
@@ -84,7 +90,7 @@ class DXFParser:
 
         # set up unit conversion
         self.units = infile.header.setdefault('$INSUNITS', 0)
-        if self.debug:
+        if self.verbose:
             print("dxf units read %s, default 0 " % self.units)
         if self.units == 0:
             self.unitsString = "unitless"
@@ -92,11 +98,12 @@ class DXFParser:
             self.unitsString = "inches"
         elif self.units == 4:
             self.unitsString = "mm"
+            self.round = 4
         else:
             print("DXF units: >%s< unsupported" % self.units)
             raise ValueError
         
-        if self.debug:
+        if self.verbose:
             print("DXF version: {}".format(infile.dxfversion))
             print("header var count: ", len(infile.header))
             print("layer count: ", len(infile.layers)) 
@@ -117,19 +124,20 @@ class DXFParser:
                 print("TODO ADD: ", entity.dxftype)
                 #self.addSpline(entity)
             else:
-                if self.debug:
+                if self.verbose:
                     print("unknown entity: ", entity.dxftype)
 
         print "Done!"
 
-        if self.debug:
-            print ("x min ", self.x_min)
-            print ("x max ", self.x_max)
-            print ("y min ", self.y_min)
-            print ("y max ", self.y_max)
+        if self.verbose:
+            print ("x min %f" % self.x_min)
+            print ("x max %f" % self.x_max)
+            print ("y min %f" % self.y_min)
+            print ("y max %f" % self.y_max)
 
         if self.x_min < 0 or self.y_min < 0:
-            print("doing shiftPositive")
+            if self.verbose:
+                print("doing shiftPositive")
             self.shiftPositive()
 
         self.validateBoundaries()
@@ -356,14 +364,16 @@ class DXFParser:
         yShift = 0;
         if self.x_min < 0:
             xShift = 0.0 - self.x_min - self.x_max
-            print("x_min", self.x_min)
-            print("x_max", self.x_max)
-            print("xShift", xShift)
+            if self.debug:
+                print("x_min %f" % self.x_min)
+                print("x_max %f" % self.x_max)
+                print("xShift %f" % xShift)
         if self.y_min < 0:
             yShift = 0.0 - self.y_min - self.y_max
-            print("y_min", self.y_min)
-            print("y_max", self.y_max)
-            print("yShift", yShift)
+            if self.debug:
+                print("y_min %f" % self.y_min)
+                print("y_max %f" % self.y_max)
+                print("yShift %f" % yShift)
 
         for color in self.colorLayers:
             if len(self.colorLayers[color]) > 0:
@@ -392,6 +402,6 @@ class DXFParser:
         if self.units == 0 or self.units == 1:
             return value * 25.4
         elif self.units == 4:
-            return value
+            return round(value, self.round)
         print ("don't know how to convert units ", units)
         raise ValueError
