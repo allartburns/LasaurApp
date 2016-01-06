@@ -6,6 +6,10 @@ dxfgrabber.   All new work added by jet is under the existing
 lasersaur licensing.  This work is done on jet's personal time,
 not supported by any commercial entities, and donations are always welcome.
 
+You'll need to install the latest dxfgrabber from console:
+
+root@laserdev:~/LasaurApp# pip install dxfgrabber
+
 Changes:
 
 - dxf line colors from entity or entity layer
