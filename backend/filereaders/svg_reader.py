@@ -45,7 +45,7 @@ except ImportError:
 #   * non-pixel units (cm, mm, in, pt, pc)
 #   * 'style' attribute and presentation attributes
 #   * curves, arcs, cirles, ellipses tesellated according to tolerance
-#
+#  
 # Intentinally not Supported:
 #   * markers
 #   * masking
@@ -69,7 +69,7 @@ class SVGReader:
     def __init__(self, tolerance, target_size):
         # parsed path data, paths by color
         # {'#ff0000': [[[x,y], [x,y], ...], [], ..], '#0000ff':[]}
-        # Each path is a list of vertices which is a list of two floats.
+        # Each path is a list of vertices which is a list of two floats.        
         self.boundarys = {}
 
         # the conversion factor to physical dimensions
@@ -79,7 +79,7 @@ class SVGReader:
         # what the svg size (typically page dimensions) should be mapped to
         self._target_size = target_size
 
-        # tolerance settings, used in tessalation, path simplification, etc
+        # tolerance settings, used in tessalation, path simplification, etc         
         self.tolerance = tolerance
         self.tolerance2 = tolerance**2
         self.tolerance2_half = (0.5*tolerance)**2
@@ -87,14 +87,14 @@ class SVGReader:
 
         # init helper object for tag reading
         self._tagReader = SVGTagReader(self)
-
+        
         # lasersaur cut setting from SVG file
         # list of triplets ... [(pass#, key, value), ...]
         # pass# designates the pass this lasertag controls
         # key is the kind of setting (one of: intensity, feedrate, color)
         # value is the actual value to use
         self.lasertags = []
-
+        
         # # tags that should not be further traversed
         # self.ignore_tags = {'defs':None, 'pattern':None, 'clipPath':None}
 
@@ -108,7 +108,7 @@ class SVGReader:
         Path data is returned as paths by color:
         {'#ff0000': [[path0, path1, ..], [path0, ..], ..]}
         Each path is a list of vertices which is a list of two floats.
-
+        
         Determining Physical Dimensions
         -------------------------------
         SVG files may use physical units (mm, in) or screen units (px).
@@ -138,7 +138,7 @@ class SVGReader:
         3. from hints of (known) originating apps
         4. from ratio of page and target size
         5. defaults to 90 DPI
-        """
+        """        
         self.px2mm = None
         self.boundarys = {}
 
@@ -215,34 +215,34 @@ class SVGReader:
                     # no physical units in file
                     # we have to interpret user (px) units
                     # 3. For some apps we can make a good guess.
-                    svghead = svgstring[0:400]
-                    if 'Inkscape' in svghead:
+            svghead = svgstring[0:400]
+            if 'Inkscape' in svghead:
                         self.px2mm *= 25.4/90.0
-                        log.info("SVG exported with Inkscape -> 90dpi.")
-                    elif 'Illustrator' in svghead:
+                log.info("SVG exported with Inkscape -> 90dpi.")      
+            elif 'Illustrator' in svghead:
                         self.px2mm *= 25.4/72.0
-                        log.info("SVG exported with Illustrator -> 72dpi.")
-                    elif 'Intaglio' in svghead:
+                log.info("SVG exported with Illustrator -> 72dpi.")
+            elif 'Intaglio' in svghead:
                         self.px2mm *= 25.4/72.0
-                        log.info("SVG exported with Intaglio -> 72dpi.")
-                    elif 'CorelDraw' in svghead:
+                log.info("SVG exported with Intaglio -> 72dpi.")
+            elif 'CorelDraw' in svghead:
                         self.px2mm *= 25.4/96.0
-                        log.info("SVG exported with CorelDraw -> 96dpi.")
-                    elif 'Qt' in svghead:
+                log.info("SVG exported with CorelDraw -> 96dpi.")
+            elif 'Qt' in svghead:
                         self.px2mm *= 25.4/90.0
-                        log.info("SVG exported with Qt lib -> 90dpi.")
+                log.info("SVG exported with Qt lib -> 90dpi.")            
                     else:
                         # give up in this step
                         self.px2mm = None
                 else:
                     log.error("SVG with unsupported unit.")
                     self.px2mm = None
-
+        
         # 4. Get px2mm by the ratio of svg size to target size
         if not self.px2mm and (width and height):
             self.px2mm = self._target_size[0]/width
             log.info("px2mm by target_size/page_size ratio")
-
+                
 
         # 5. Fall back on px unit DPIs default value
         if not self.px2mm:
@@ -251,7 +251,7 @@ class SVGReader:
 
         # adjust tolerances to px units
         self.tolerance2_px = (self.tolerance/self.px2mm)*(self.tolerance/self.px2mm)
-
+        
         # translation from viewbox
         if vb_x:
             tx = vb_x
@@ -264,7 +264,7 @@ class SVGReader:
 
         # let the fun begin
         # recursively parse children
-        # output will be in self.boundarys
+        # output will be in self.boundarys    
         node = {
             'xformToWorld': [1,0,0,1,tx,ty],
             'display': 'visible',
@@ -276,17 +276,18 @@ class SVGReader:
             'stroke-opacity': 1.0,
             'opacity': 1.0
         }
+        self.bbox = [0, 0]
         self.parse_children(svgRootElement, node)
-
+        
         # build result dictionary
-        parse_results = {'boundarys':self.boundarys, 'dpi':round(25.4/self.px2mm)}
+        parse_results = {'boundarys':self.boundarys, 'dpi':self.dpi, 'bbox':self.bbox}
         if self.lasertags:
             parse_results['lasertags'] = self.lasertags
 
         return parse_results
 
 
-
+    
     def parse_children(self, domNode, parentNode):
         for child in domNode:
             # log.debug("considering tag: " + child.tag)
@@ -307,10 +308,10 @@ class SVGReader:
                     'opacity': parentNode.get('opacity')
                 }
 
-                # 2. parse child
+                # 2. parse child 
                 # with current attributes and transformation
                 self._tagReader.read_tag(child, node)
-
+                
                 # 3. compile boundarys + conversions
                 for path in node['paths']:
                     if path:  # skip if empty subpath
@@ -319,6 +320,12 @@ class SVGReader:
                             # print isinstance(vert[0],float) and isinstance(vert[1],float)
                             matrixApply(node['xformToWorld'], vert)
                             vertexScale(vert, self.px2mm)
+                            if vert[0] > self.bbox[0]:
+                                self.bbox[0] = vert[0]
+
+                            if vert[1] > self.bbox[1]:
+                                self.bbox[1] = vert[1]
+                                
                         # 3b.) sort output by color
                         hexcolor = node['stroke']
                         if hexcolor in self.boundarys:
@@ -329,7 +336,7 @@ class SVGReader:
                 # 4. any lasertags (cut settings)?
                 if node.has_key('lasertags'):
                     self.lasertags.extend(node['lasertags'])
-
+            
                 # recursive call
                 self.parse_children(child, node)
 
