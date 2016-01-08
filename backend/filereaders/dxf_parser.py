@@ -83,8 +83,7 @@ class DXFParser:
         self.y_max = -610.0
         
     def parse(self, dxfInput):
-        dxfStream = io.StringIO(unicode(dxfInput.replace('\r\n','\n')))
-
+        dxfStream = io.StringIO(dxfInput, newline=None)
         dwg = dxfgrabber.read(dxfStream)
         if not dwg:
             print ("DXFGRABBER FAIL")
