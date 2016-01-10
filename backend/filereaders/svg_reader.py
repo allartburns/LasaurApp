@@ -276,10 +276,11 @@ class SVGReader:
             'stroke-opacity': 1.0,
             'opacity': 1.0
         }
+        self.bbox = [0, 0]
         self.parse_children(svgRootElement, node)
 
         # build result dictionary
-        parse_results = {'boundaries':self.boundaries, 'dpi':round(25.4/self.px2mm)}
+        parse_results = {'boundarys':self.boundarys, 'dpi':self.dpi, 'bbox':self.bbox}
         if self.lasertags:
             parse_results['lasertags'] = self.lasertags
 
@@ -319,6 +320,12 @@ class SVGReader:
                             # print isinstance(vert[0],float) and isinstance(vert[1],float)
                             matrixApply(node['xformToWorld'], vert)
                             vertexScale(vert, self.px2mm)
+                            if vert[0] > self.bbox[0]:
+                                self.bbox[0] = vert[0]
+
+                            if vert[1] > self.bbox[1]:
+                                self.bbox[1] = vert[1]
+                                
                         # 3b.) sort output by color
                         hexcolor = node['stroke']
                         if hexcolor in self.boundaries:
