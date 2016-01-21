@@ -76,11 +76,11 @@ class DXFParser:
         # flip/adjust globals
         self.cos180 = round(cos(radians(180)))
         self.sin180 = round(sin(radians(180)))
-        self.x_min = 1220.0
+        self.x_min = self.bedwidth[0]
         self.x_max = 0.0
-        self.y_min = 0.0
 	#because the y bed is inverted and we are going to flip it
-        self.y_max = -610.0
+        self.y_min = -self.bedwidth[1]
+        self.y_max = 0.0
         
     def parse(self, dxfInput):
         dxfStream = io.StringIO(unicode(dxfInput.replace('\r\n','\n')))
@@ -136,12 +136,13 @@ class DXFParser:
         print "Done!"
 
         if self.verbose:
+            print ("pre flipped");
             print ("x min %f" % self.x_min)
             print ("x max %f" % self.x_max)
             print ("y min %f" % self.y_min)
             print ("y max %f" % self.y_max)
 
-        if self.x_min < 0 or self.y_min < 0:
+        if self.x_min < 0 or self.y_max > -self.bedwidth[1]:
             if self.verbose:
                 print("doing shiftPositive")
             self.shiftPositive()
@@ -194,6 +195,7 @@ class DXFParser:
         cy = self.unitize(entity.center[1])
         r = self.unitize(entity.radius)
         path = []
+
         self.makeArc(path, cx-r, cy, r, r, 0, 0, 0, cx, cy+r)
         self.makeArc(path, cx, cy+r, r, r, 0, 0, 0, cx+r, cy)
         self.makeArc(path, cx+r, cy, r, r, 0, 0, 0, cx, cy-r)
@@ -377,7 +379,7 @@ class DXFParser:
                 print("x_min %f" % self.x_min)
                 print("x_max %f" % self.x_max)
                 print("xShift %f" % xShift)
-        if self.y_min < 0:
+        if self.y_min < self.bedwidth[1]:
             yShift = 0.0 - self.y_min - self.y_max
             if self.debug:
                 print("y_min %f" % self.y_min)
@@ -401,11 +403,10 @@ class DXFParser:
         elif x > self.x_max:
             self.x_max = x
             
-        if y < self.y_min:
+        if y > self.y_min:
             self.y_min = y
-        elif y > self.y_max:
+        elif y < self.y_max:
             self.y_max = y
-
 
     def unitize(self, value):
         if self.units == 0 or self.units == 1:
