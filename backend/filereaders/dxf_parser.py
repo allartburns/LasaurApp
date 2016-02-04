@@ -67,7 +67,6 @@ class DXFParser:
         # [60.00000000000001, 20.00000000000002]
         # if we're reading other units we'll do this rounding after
         # conversion to mm 
-        self.metricflag = 1
         self.round = 4
         self.linecount = 0
         self.line = ''
@@ -89,6 +88,8 @@ class DXFParser:
             print ("DXFGRABBER FAIL")
             raise ValueError
 
+        # TODO: check DXF version to see if INSUNITS is expected
+        # TODO: try and guess mm vs in based on max x/y
         # set up unit conversion
         self.units = dwg.header.setdefault('$INSUNITS', 0)
         if self.verbose:
