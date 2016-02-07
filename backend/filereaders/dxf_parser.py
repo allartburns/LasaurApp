@@ -231,10 +231,10 @@ class DXFParser:
             self.black_colorLayer.append(flippedPath)
         else:
             if self.verbose:
-                print("unrecognized color %d, setting to black" % color)
+                print("unrecognized color %d, setting to cyan" % color)
             #TODO: we need a better way to handle this
             #don't know what to do with this color, assigning to red/cut
-            self.black_colorLayer.append(flippedPath)
+            self.cyan_colorLayer.append(flippedPath)
             
     def flipPathAxis(self, path, axis):
         flippedPath = []
