@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 
 import sys, os, time
 import glob, json, argparse, copy
