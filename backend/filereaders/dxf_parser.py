@@ -201,7 +201,6 @@ class DXFParser:
         self.makeArc(path, cx, cy+r, r, r, 0, 0, 0, cx+r, cy)
         self.makeArc(path, cx+r, cy, r, r, 0, 0, 0, cx, cy-r)
         self.makeArc(path, cx, cy-r, r, r, 0, 0, 0, cx-r, cy)
-        self.unitizePath(path)
         self.add_path_by_color(entity.color, path)
 
     def addPolyLine(self, entity):
