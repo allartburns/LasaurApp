@@ -17,7 +17,7 @@ class DXFReader:
 
     Usage:
     reader = DXFReader(0.08)
-    boundarys = reader.parse(open('filename').read())
+    boundaries = reader.parse(open('filename').read())
     """
 
     def __init__(self, tolerance):
@@ -28,15 +28,36 @@ class DXFReader:
         # parsed path data, paths by color
         # {'#ff0000': [[path0, path1, ..], [path0, ..], ..]}
         # Each path is a list of vertices which is a list of two floats.        
-        self.boundarys = {'#000000':[]}
-        self.black_boundarys = self.boundarys['#000000']
+        # using iso pen colors from dxfwrite
+        # 0 is undefined in DXF, it specifies no color, not black
+        # 1 red
+        # 2 yellow
+        # 3 green
+        # 4 cyan
+        # 5 blue
+        # 6 magenta
+        # 7 black
 
+        self.boundaries = {'#FF0000':[],
+                          '#FFFF00':[],
+                          '#00FF00':[],
+                          '#00FFFF':[],
+                          '#0000FF':[],
+                          '#CC33CC':[],
+                          '#000000':[]}
+
+        self.red_boundaries = self.boundaries['#FF0000']
+        self.yellow_boundaries = self.boundaries['#FFFF00']
+        self.green_boundaries = self.boundaries['#00FF00']
+        self.cyan_boundaries = self.boundaries['#00FFFF']
+        self.blue_boundaries = self.boundaries['#0000FF']
+        self.magenta_boundaries = self.boundaries['#CC33CC']
+        self.black_boundaries = self.boundaries['#000000']
+        
         self.metricflag = 1
         self.linecount = 0
         self.line = ''
         self.dxfcode = ''
-
-
 
     def parse(self, dxfstring):
         self.linecount = 0
@@ -68,7 +89,12 @@ class DXFReader:
 
         self.infile.close()
         print "Done!"
-        return {'boundarys':self.boundarys}
+
+        self.returnBoundaries = {}
+        for color in self.boundaries:
+            if len(self.boundaries[color]) > 0:
+                self.returnBoundaries[color] = self.boundaries[color]
+        return {'boundaries':self.returnBoundaries}
 
 
     ################
@@ -106,6 +132,7 @@ class DXFReader:
     # Translate each type of entity (line, circle, arc, lwpolyline)
 
     def do_line(self):
+        color = float(self.readgroup(62))
         x1 = float(self.readgroup(10))
         y1 = float(self.readgroup(20))
         x2 = float(self.readgroup(11))
@@ -115,9 +142,11 @@ class DXFReader:
             y1 = y1*25.4        
             x2 = x2*25.4
             y2 = y2*25.4        
-        self.black_boundarys.append([[x1,y1],[x2,y2]])
+        path = [[x1,y1], [x2,y2]]
+        self.add_path_by_color(color, path)
 
     def do_circle(self):
+        color = float(self.readgroup(62))
         cx = float(self.readgroup(10))
         cy = float(self.readgroup(20))
         r = float(self.readgroup(40))
@@ -130,9 +159,10 @@ class DXFReader:
         self.addArc(path, cx, cy+r, r, r, 0, 0, 0, cx+r, cy)
         self.addArc(path, cx+r, cy, r, r, 0, 0, 0, cx, cy-r)
         self.addArc(path, cx, cy-r, r, r, 0, 0, 0, cx-r, cy)
-        self.black_boundarys.append(path)
+        self.add_path_by_color(color, path)
 
     def do_arc(self):
+        color = float(self.readgroup(62))
         cx = float(self.readgroup(10))
         cy = float(self.readgroup(20))
         r = float(self.readgroup(40))
@@ -154,12 +184,14 @@ class DXFReader:
         y2 = cy + r*math.sin(theta2)
         path = []
         self.addArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
-        self.black_boundarys.append(path)
+        self.add_path_by_color(color, path)
 
     def do_lwpolyline(self):
+        color = float(self.readgroup(62))
         numverts = int(self.readgroup(90))
         path = []
-        self.black_boundarys.append(path)
+        self.add_path_by_color(color, path)
+
         for i in range(0,numverts):
             x = float(self.readgroup(10))
             y = float(self.readgroup(20))
@@ -168,6 +200,25 @@ class DXFReader:
                 y = y*25.4
             path.append([x,y])
 
+    def add_path_by_color(self, color, path):
+        if color == 1:
+            self.red_boundaries.append(path)
+        elif color == 2:
+            self.yellow_boundaries.append(path)
+        elif color == 3:
+            self.green_boundaries.append(path)
+        elif color == 4:
+            self.cyan_boundaries.append(path)
+        elif color == 5:
+            self.blue_boundaries.append(path)
+        elif color == 6:
+            self.magenta_boundaries.append(path) 
+        elif color == 7:
+            self.black_boundaries.append(path)
+        else:
+            print("don't know what to do with color ", color)
+            raise ValueError
+
     def complain_spline(self):
         print "Encountered a SPLINE at line", self.linecount
         print "This program cannot handle splines at present."
@@ -175,9 +226,7 @@ class DXFReader:
         raise ValueError
 
     def complain_invalid(self):
-        print "Invalid element '" + self.line + "' on line", self.linecount
-        print "Can't process this DXF file. Sorry!"
-        raise ValueError
+        print "Skipping unrecognized element '" + self.line + "' on line", self.linecount
 
     def addArc(self, path, x1, y1, rx, ry, phi, large_arc, sweep, x2, y2):
         # Implemented based on the SVG implementation notes
@@ -256,6 +305,4 @@ class DXFReader:
         path.append(c5Init)
 
 
-
-
-
+    
