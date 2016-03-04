@@ -194,7 +194,47 @@ class SVGTagReader:
     def image(self, node):
         # not supported
         # has transform and style attributes
-        log.warn("'image' tag is not supported, ignored")
+        data = node.get('href')
+        x = node.get('x') or 0
+        y = node.get('y') or 0
+        width = node.get('width') or 0
+        height = node.get('height') or 0
+
+        if width <= 0 or height <= 0:
+            return
+
+        if data.startswith('data:image/'):
+            image = data
+            # match = self.re_match_imagemime(data)
+            # if match:
+            #     image_type = match.groups()[0]
+            #     log.debug("Embedded %s image found ..." % (image_type))
+            #     # image = Image.open(io.BytesIO(base64.b64decode(data[22:].encode('utf-8'))))
+            #     # image = data[22:]
+            # else:
+            #     log.warn("Unsupported image format embedded.")
+            #     return
+        else:
+            # if data.startswith("file://"):
+            #     with open(data, "rb") as image_file:
+            #         image = base64.b64encode(image_file.read())
+            # else:
+            #     log.warn("Only locally linked (and embedded) images supported.")
+            #     return
+            image = ''
+            log.error("Only embedded images are supported.")
+
+        # image.show()
+        # converted_image = image.convert("L")
+        # converted_image.show()
+
+        raster = {}
+        raster['pos'] = [x, y]
+        raster['size'] = [width, height]
+        # raster['image'] = converted_image
+        raster['data'] = image
+        node['rasters'].append(raster)
+
 
 
     def defs(self, node):

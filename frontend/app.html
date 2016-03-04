@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
 
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>LasaurApp</title>
@@ -69,6 +69,11 @@
         </div>
     </div>
 
+    <script src="lib.js"></script>
+    <script src="jobview.js"></script>
+    <script src="app.js"></script>
+    <script src="jobhandler.js"></script>
+    <script src="import.js"></script>
 
     <!-- about modal -->
     <div id="about_modal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="about_label" aria-hidden="true">
@@ -119,7 +124,7 @@
                             <li><a href="#tab_mover" id="tab_mover_button" data-toggle="tab"><i class="icon-move" style="margin-right:2px"></i> Move/Jog</a></li>
                             <li><a href="#tab_logs" id="tab_logs_button" data-toggle="tab"><i class="icon-exclamation-sign" style="margin-right:2px"></i> Logs</a></li>
                         </ul>
-                    </div>
+        </div>
                     <!--tabbar end-->
                     <div class="span10">
                         <div class="tab-content" style="overflow:visible; padding-bottom:30px">
@@ -131,7 +136,7 @@
                                         <input type="text" id="job_name" style="width:296px" placeholder="Load or import a job.">
                                         <button id="file_import_quick_btn" class="btn pull-right" title="file import" data-delay="500">
                                             <span class="icon-folder-open"></span>
-                                        </button>
+          </button>
                                         <textarea id="job_data" style="display:none"></textarea>
                                         <div id="preview_canvas_container"></div>
                                         <!-- passes -->
@@ -149,7 +154,7 @@
                                                 <button id="job_submit" class="btn btn-large btn-primary">Send to Lasersaur</button>
                                                 <button id="job_bbox_submit" class="btn btn-large btn-primary" title="send bounding box to lasersaur" data-delay="500">
                                                     <span class="icon-resize-full icon-white"></span>
-                                                </button>
+          </button>
                                             </div>
                                             <div id="stats_after_name" class="pull-left" style="margin-left:20px;padding-top:10px;color:#888888"></div>
                                             <div class="btn-group pull-right">
@@ -164,8 +169,8 @@
                                             </div>
                                             <button id="job_save_to_queue" class="btn btn-large pull-right" title="add to queue" data-delay="500" style="margin-right:10px">
                                                     <span class="icon-th-list"></span>
-                                            </button>
-                                        </div>
+          </button>
+        </div>
                                         <div id="progressbar" class="progress progress-striped" style="margin-top:70px; clear:both">
                                             <div class="bar" style="width:0%;"></div>
                                         </div>
@@ -182,11 +187,11 @@
                                             <a class="btn btn-large dropdown-toggle" data-toggle="dropdown" href="#">
                                                 Library Jobs
                                                 <span class="caret"></span>
-                                            </a>
+              </a>
                                             <ul id="job_library" class="dropdown-menu"></ul>
                                                 <!-- stock library go here -->
-                                            </ul>
-                                        </div>
+              </ul>
+        </div>
                                     </div>
                                 </div>
                             </div>
@@ -198,7 +203,7 @@
                                     <div class="btn-group pull-left">
                                             <button id="file_import_btn" class="btn btn-large" data-loading-text="loading..." autocomplete="off">
                                                 <i class="icon-folder-open"></i> Import
-                                            </button>
+            </button>
                                         <button class="btn btn-large dropdown-toggle" data-toggle="dropdown"><span class="caret"></span></button>
                                         <ul class="dropdown-menu">
                                             <li><a id="svg_import_72_btn" href="#">Import 72dpi SVG</a></li>
@@ -207,7 +212,7 @@
                                                 <li class="divider"></li>
                                             <li><a id="svg_import_nop_btn" href="#">Import without Optimizing</a></li>
                                         </ul>
-                                    </div>
+        </div>
                                         <div id="dpi_import_info" class="pull-left" style="margin:10px"></div>
 
                                         <div class="pull-left">
@@ -223,8 +228,8 @@
                                     <div class="pull-left">
                                         <button id="import_to_queue" class="btn btn-large" style="margin-top:16px">
                                             <i class="icon-th-list"></i> Add to Queue
-                                        </button>
-                                    </div>
+          </button>
+        </div>
                                     <div class="pull-left" style="margin-top:27px; margin-left:20px">
                                         under name
                                     </div>
@@ -240,7 +245,7 @@
                                 <div class="alert" style="width:400px">
                                     <a class="close" data-dismiss="alert">×</a>
                                     <strong>Note!</strong> Set cutting parameters in the SVG file with <a href="http://www.lasersaur.com/manual/lasertags">LaserTags</a>.
-                                </div>
+      </div>
                             </div> <!-- end of import tab -->
 
                             <div id="tab_mover" class="tab-pane" style="margin-left:0px">
@@ -273,6 +278,10 @@
                                             <span class="add-on" style="margin-left:-5px;">mm/min</span>
                                         </div>
 
+      <canvas id="job-canvas" class="pull-left" style="height:100%" resize></canvas>
+
+      <!-- info div -->
+      <div id="job-info" class="pull-right" style="width:200px;background-color:#999999"></div>
                                     </div>
                                     <div class="row clearfix" style="width:400px; margin-left:auto; margin-right:auto; margin-top:16px">
                                         <div class="well pull-left" style="width:140px; height:130px; background-color:#dddddd">
@@ -286,42 +295,42 @@
                                             <div class="row" style="width:44px; margin-left:auto; margin-right:auto; margin-top:8px">
                                                 <button id="jog_down_btn" class="btn btn-large"><i class="icon-arrow-down"></i></button>
                                             </div>
-                                        </div>
+            </div>
                                         <div class="well pull-right" style="width:168px; height:130px; background-color:#dddddd">
                                             <div class="btn-group" style="margin-top:26px; margin-bottom:14px">
                                                 <button id="location_set_btn" class="btn"><span id="loc_move_cut_word">Move</span>To</button>
                                                 <button id="origin_set_btn" class="btn">OffsetTo</button>
-                                            </div>
+            </div>
                                             <div class="input-prepend pull-left">
                                                 <span class="add-on" style="margin-right:-5px;">x</span>
                                                 <input id="x_location_field" type="textfield" value="0" style="width:48px;">
-                                            </div>
+          </div>
                                             <div class="input-prepend pull-left" style="margin-left:4px;">
                                                 <span class="add-on" style="margin-right:-5px;">y</span>
                                                 <input id="y_location_field" type="textfield" value="0" style="width:42px;">
-                                            </div>
-                                        </div>
-                                    </div>
+        </div>
+      </div>
+            </div>
                                     <div class="row" style="width:210px; margin-left:auto; margin-right:auto;">
                                         <button id="air_on_btn" class="btn">Air Assist On</button>
                                         <button id="air_off_btn" class="btn">Air Assist Off</button>
-                                    </div>
-                                </div>
+            </div>
+          </div>
                                 <div class="alert" style="width:400px">
                                     <a class="close" data-dismiss="alert">×</a>
                                     <strong>Note!</strong> Set an offset by shift-clicking in the work area.
-                                </div>
+        </div>
                                 <div class="alert" style="width:400px">
                                     <a class="close" data-dismiss="alert">×</a>
                                     <strong>Note!</strong> User arrow keys to jog. De/increase step with alt and shift.
-                                </div>
+      </div>
                             </div> <!-- end of mover tab -->
 
                             <div id="tab_logs" class="tab-pane active">
                                 <div class="alert" style="margin:5px; display:none">
                                     <a class="close" data-dismiss="alert">×</a>
                                     Log, most recent messages first:
-                                </div>
+    </div>
                                 <div id="log_content" style="clear:both; overflow:auto; display:none">
                                     <!-- log -->
                                 </div>
@@ -333,8 +342,8 @@
                 </div>
             </div>
         </div>
-    </div>
+      </div>
 
 
-</body>
+  </body>
 </html>
