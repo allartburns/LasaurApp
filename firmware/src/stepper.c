@@ -339,9 +339,8 @@ ISR(TIMER1_COMPA_vect) {
         // decelerating
         } else if (step_events_completed >= current_block->decelerate_after) {
           if ( acceleration_tick() ) {  // scheduled speed change
-//            adjusted_rate -= current_block->rate_delta;
               if (adjusted_rate > current_block->rate_delta) {
-                  adjusted_rate -= current_block->rate_delta;
+            adjusted_rate -= current_block->rate_delta;
               } else {
                   adjusted_rate = 0; // unsigned
               }
@@ -575,5 +574,3 @@ void stepper_homing_cycle() {
   approach_limit_switch(true, true, false);
   leave_limit_switch(true, true, false);
 }
-
-
