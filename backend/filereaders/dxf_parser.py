@@ -188,7 +188,6 @@ class DXFParser:
         y2 = cy + r * sin(theta2)
         path = []
         self.makeArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
-        self.unitizePath(path)
         self.add_path_by_color(entity.color, path)
 
     def addCircle(self, entity):
@@ -416,9 +415,3 @@ class DXFParser:
         print ("don't know how to convert units ", units)
         raise ValueError
 
-    def unitizePath(self, path):
-        retPath = []
-        for point in path:
-            point[0] = self.unitize(point[0])
-            point[1] = self.unitize(point[1])
-            
