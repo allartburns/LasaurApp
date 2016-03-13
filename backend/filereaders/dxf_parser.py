@@ -211,8 +211,9 @@ class DXFParser:
 
     def add_path_by_color(self, color, path):
         flippedPath = self.flipPathAxis(path, "X")
-        if flippedPath == path:
-            print("caution: flippedPath %s == path %s" % (flippedPath, path))
+        if debug:
+            if flippedPath == path:
+                print("caution: flippedPath %s == path %s" % (flippedPath, path))
         if color == 1:
             self.red_colorLayer.append(flippedPath)
         elif color == 2:
