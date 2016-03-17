@@ -16,12 +16,6 @@ def parseFloats(float_strings):
 		float_strings[i] = float(float_strings[i])
 	return float_strings
 
-def parseScalar(scalar_unit_string):
-	"""Parse one scalar string with (optional) unit and return both."""
-	num, unit = re_scalar_unit(scalar_unit_string)[0]
-	num = float(num)
-	return (num, unit)
-
 
 def parseScalar(scalar_unit_string):
 	"""Parse one scalar string with (optional) unit and return both."""

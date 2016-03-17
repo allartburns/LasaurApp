@@ -4,11 +4,15 @@ __author__ = 'Stefan Hechenberger <stefan@nortd.com>'
 import re
 import math
 import logging
+import base64
+# import io
 
 from .utilities import matrixMult, parseFloats
 
 from .svg_attribute_reader import SVGAttributeReader
 from .svg_path_reader import SVGPathReader
+
+# from PIL import Image
 
 log = logging.getLogger("svg_reader")
 
@@ -38,6 +42,7 @@ class SVGTagReader:
         }
 
         self.re_findall_lasertags = re.compile('=pass([0-9]+):([0-9]*)(mm\/min)?:([0-9]*)(%)?(:#[a-fA-F0-9]{6})?(:#[a-fA-F0-9]{6})?(:#[a-fA-F0-9]{6})?(:#[a-fA-F0-9]{6})?(:#[a-fA-F0-9]{6})?(:#[a-fA-F0-9]{6})?=').findall
+        self.re_match_imagemime = re.compile('data:image/(png);base64,', re.IGNORECASE).match
 
 
     def read_tag(self, tag, node):
@@ -192,7 +197,6 @@ class SVGTagReader:
 
 
     def image(self, node):
-        # not supported
         # has transform and style attributes
         data = node.get('href')
         x = node.get('x') or 0
