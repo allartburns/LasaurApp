@@ -1,0 +1,64 @@
+Here we go ... the code is a lot more modular. The files of interest
+are:
+
+- driveboard.py
+- lasersaur.py
+- web.py
+
+Code is here:
+https://github.com/stefanix/LasaurApp/tree/alpha
+
+They can all be used directly in your python scripts and are fairly well
+doc-stringed. This also allows for some nice test suites. driveboard.py
+does the low-level serial communication . lasersaur.py does the
+high-level serial communication. web.py maps the interface of
+lasersaur.py to a web API. The web API is the API various frontends can
+connect to the lasersaur over the network. The native web interface also
+uses the web API to do everything.
+
+You fire up the web API by simply starting LasaurApp "python
+frontend/app.py" as usual. If you want to start it from your own python
+script take a look at app.py how it is done.
+
+Once the Web API runs (NOTE: the new web user interface still needs some
+work) most commands are simple GET requests. See web.py for details.
+Here are some examples:
+
+Btw, the API requires credentials. Default is laser:laser
+
+- get status:
+  - http://127.0.0.1:4444/status
+
+- move to x,y,z
+  - http://127.0.0.1:4444/move/10/20/30
+
+- air on/off
+  - http://127.0.0.1:4444/air_on
+  - http://127.0.0.1:4444/air_off
+
+- load job (add to the job queue)
+  - http://127.0.0.1:4444/load
+  - POST vars
+    - job ... string of lsa, svg, dxf, ngc
+    - name ... job name
+    - optimize
+
+- run job
+  - http://127.0.0.1:4444/run/name
+
+- pause, upause
+  - http://127.0.0.1:4444/pause
+  - http://127.0.0.1:4444/unpause
+
+- flash firmware
+  - http://127.0.0.1:4444/flash
+
+
+This should get y'all started, 
+Let me know of any questions,
+
+-- 
+Stefan Hechenberger
+studio: http://www.nortd.com
+project: http://www.lasersaur.com
+ 
