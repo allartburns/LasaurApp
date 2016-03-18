@@ -1,3 +1,12 @@
+jet:
+
+avrdude -c arduino -b 115200 -P /dev/ttyO1 -p atmega328p -C "/etc/avrdude.conf" -Uflash:w:"/root/LasaurApp/firmware/Lasaur-new.hex":i
+
+
+
+"/usr/bin/avrdude" -c arduino -b 115200 -P  -p atmega328p -C "/etc/avrdude.conf" -Uflash:w:"/root/martinxyz-LasaurApp/firmware/LasaurGrbl.hex":i
+Stefan:
+
 Here we go ... the code is a lot more modular. The files of interest
 are:
 
@@ -27,31 +36,31 @@ Here are some examples:
 Btw, the API requires credentials. Default is laser:laser
 
 - get status:
-  - http://127.0.0.1:4444/status
+  - http://10.0.1.60:4444/status
 
 - move to x,y,z
-  - http://127.0.0.1:4444/move/10/20/30
+  - http://10.0.1.60:4444/move/10/20/30
 
 - air on/off
-  - http://127.0.0.1:4444/air_on
-  - http://127.0.0.1:4444/air_off
+  - http://10.0.1.60:4444/air_on
+  - http://10.0.1.60:4444/air_off
 
 - load job (add to the job queue)
-  - http://127.0.0.1:4444/load
+  - http://10.0.1.60:4444/load
   - POST vars
     - job ... string of lsa, svg, dxf, ngc
     - name ... job name
     - optimize
 
 - run job
-  - http://127.0.0.1:4444/run/name
+  - http://10.0.1.60:4444/run/name
 
 - pause, upause
-  - http://127.0.0.1:4444/pause
-  - http://127.0.0.1:4444/unpause
+  - http://10.0.1.60:4444/pause
+  - http://10.0.1.60:4444/unpause
 
 - flash firmware
-  - http://127.0.0.1:4444/flash
+  - http://10.0.1.60:4444/flash
 
 
 This should get y'all started, 
