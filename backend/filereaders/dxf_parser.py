@@ -81,7 +81,7 @@ class DXFParser:
         self.y_min = -self.bedwidth[1]
         self.y_max = 0.0
         
-    def parse(self, dxfInput):
+    def parse(self, dxfInput, forced_unit):
         dxfStream = io.StringIO(unicode(dxfInput.replace('\r\n','\n')))
         dwg = dxfgrabber.read(dxfStream)
         if not dwg:
@@ -91,7 +91,11 @@ class DXFParser:
         # TODO: check DXF version to see if INSUNITS is expected
         # TODO: try and guess mm vs in based on max x/y
         # set up unit conversion
-        self.units = dwg.header.setdefault('$INSUNITS', 0)
+        if forced_unit == 0 or forced_unit == None:
+            self.units = dwg.header.setdefault('$INSUNITS', 0)
+        else:
+            print("using forced_unit", forced_unit)
+            self.units = forced_unit
         if self.verbose:
             print("dxf units read %s, default 0 " % self.units)
         if self.units == 0:
@@ -103,7 +107,7 @@ class DXFParser:
         else:
             print("DXF units: >%s< unsupported" % self.units)
             raise ValueError
-        
+            
         if self.verbose:
             print("DXF version: {}".format(dwg.dxfversion))
             print("header var count: ", len(dwg.header))
