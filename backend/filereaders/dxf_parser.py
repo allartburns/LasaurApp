@@ -257,13 +257,13 @@ class DXFParser:
         for x, y in path:
             if axis == 'X':
                 x1 = x
-                y1 = self.cos180 * y
+                y1 = round(self.cos180 * y, self.round)
             elif axis == 'Y':
-                x1 = self.cos180 * x
+                x1 = round(self.cos180 * x, self.round)
                 y1 = y
             elif axis == 'Z':
-                x1 = self.cos180 * x - self.sin180 * y
-                y1 = self.sin180 * x + self.cos180 * y
+                x1 = round(self.cos180 * x - self.sin180 * y, self.round)
+                y1 = round(self.sin180 * x + self.cos180 * y, self.round)
             self.setMinMax(x1, y1)
             flippedPath.append([x1, y1])
 
@@ -361,16 +361,16 @@ class DXFParser:
                 thisColor = self.colorLayers[color]
                 for i in range(0, len(thisColor)):
                     if thisColor[i][0][0] < 0 or thisColor[i][0][0] > self.bedwidth[0]:
-                        print("WARN: outside of bounds x0 ",  thisColor[i])
+                        print("WARN: outside of bounds x0 ",  thisColor[i][0][0])
                         raise ValueError
                     elif thisColor[i][0][1] < 0 or thisColor[i][0][1] > self.bedwidth[1]:
-                        print("WARN: outside of bounds y0 ",  thisColor[i])
+                        print("WARN: outside of bounds y0 ",  thisColor[i][0][1])
                         raise ValueError
                     elif thisColor[i][1][0] < 0 or thisColor[i][1][0] > self.bedwidth[0]:
-                        print("WARN: outside of bounds x1 ",  thisColor[i])
+                        print("WARN: outside of bounds x1 ",  thisColor[i][1][0])
                         raise ValueError
                     elif thisColor[i][1][1] < 0 or thisColor[i][1][1] > self.bedwidth[1]:
-                        print("WARN: outside of bounds y1 ",  thisColor[i])
+                        print("WARN: outside of bounds y1 ",  thisColor[i][1][1])
                         raise ValueError
         
 
@@ -384,8 +384,13 @@ class DXFParser:
                 print("x_max %f" % self.x_max)
                 print("xShift %f" % xShift)
         if self.y_min < self.bedwidth[1]:
-            yShift = 0.0 - self.y_min - self.y_max
+            self.y_min += 0
+            if self.y_min == 0:
+                yShift = 0.0 - self.y_max
+            else:
+                yShift = self.bedwidth[1]
             if self.debug:
+                print("y bedwidth %f" % self.bedwidth[1])
                 print("y_min %f" % self.y_min)
                 print("y_max %f" % self.y_max)
                 print("yShift %f" % yShift)
