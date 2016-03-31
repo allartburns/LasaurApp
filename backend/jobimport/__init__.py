@@ -43,6 +43,8 @@ def convert(job, optimize=True, tolerance=conf['tolerance']):
         job = read_dxf(job, tolerance, optimize=optimize)
     elif type_ == 'ngc':
         job = read_ngc(job, tolerance, optimize=optimize)
+    elif type_ == 'nc':
+        job = read_ngc(job, tolerance, optimize=False)
     else:
         print "ERROR: file type not recognized"
         raise TypeError
@@ -131,6 +133,7 @@ def read_dxf(dxf_string, tolerance, optimize=True):
 
     # create an lsa job from res
     # TODO: reader should generate an lsa job to begin with
+    print res
     job = {}
     if 'boundarys' in res:
         job['vector'] = {}
@@ -161,15 +164,13 @@ def read_ngc(ngc_string, tolerance, optimize=False):
         job['vector'] = {}
         vec = job['vector']
         # format: {'#ff0000': [[[x,y], [x,y], ...], [], ..], '#0000ff':[]}
-        # colors = []
         paths = []
-        for k,v in res['boundarys']:
-            # colors.append(k)
-            paths.append(v)
+        for c in res['boundarys']:
+            for v in res['boundarys'][c]:
+                paths.append(v)
         if optimize:
             pathoptimizer.optimize(paths, tolerance)
         vec['paths'] = paths
-        # vec['colors'] = colors
         if optimize:
             vec['optimized'] = tolerance
     return job
@@ -188,13 +189,17 @@ def get_type(job):
             type_ = 'svg'
         elif 'SECTION' in jobheader and 'HEADER' in jobheader:
             type_ = 'dxf'
+        elif '(initialization gcode)' in jobheader:
+            type_ = 'nc'
         elif 'G0' in jobheader or 'G1' in jobheader or \
              'G00' in jobheader or 'G01' in jobheader or \
              'g0' in jobheader or 'g1' in jobheader or \
              'g00' in jobheader or 'g01' in jobheader:
+            print("found ngc");
             type_ = 'ngc'
         else:
             print "ERROR: Cannot figure out file type 1."
+            print "job: ", job
             raise TypeError
     else:
         print "ERROR: Cannot figure out file type 2."

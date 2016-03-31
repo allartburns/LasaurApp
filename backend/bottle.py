@@ -2405,6 +2405,7 @@ class FileUpload(object):
 
 def abort(code=500, text='Unknown Error.'):
     """ Aborts execution and causes a HTTP error. """
+    print("botle abort ", code, text)
     raise HTTPError(code, text)
 
 
