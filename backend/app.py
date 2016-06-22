@@ -484,6 +484,13 @@ def file_reader():
     except:
         pass
 
+    dxf_unit = None
+    try:
+        dxf_unit = int(request.forms.get('dxf_unit'))
+        print ("dxf_unit ", dxf_unit)
+    except:
+        pass
+
     optimize = True
     try:
         optimize = bool(int(request.forms.get('optimize')))
@@ -493,7 +500,7 @@ def file_reader():
     if filename and filedata:
         print "You uploaded %s (%d bytes)." % (filename, len(filedata))
         if filename[-4:] in ['.dxf', '.DXF']: 
-            res = read_dxf(filedata, TOLERANCE, optimize)
+            res = read_dxf(filedata, TOLERANCE, dxf_unit, optimize)
         elif filename[-4:] in ['.svg', '.SVG']: 
             res = read_svg(filedata, dimensions, TOLERANCE, dpi_forced, optimize)
         elif filename[-4:] in ['.lsa', '.LSA']:

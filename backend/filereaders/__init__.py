@@ -21,17 +21,12 @@ def read_svg(svg_string, target_size, tolerance, forced_dpi=None, optimize=True)
     return parse_results
 
 
-def read_dxf(dxf_string, tolerance, optimize=True):
+def read_dxf(dxf_string, tolerance, forced_unit=None, optimize=True):
 #def read_dxf(dxf_string, tolerance, optimize=False):
     dxfParser = DXFParser(tolerance)
-    parse_results = dxfParser.parse(dxf_string)
+    parse_results = dxfParser.parse(dxf_string, forced_unit)
     if optimize:
         optimize_all(parse_results['boundaries'], tolerance)
-    # # flip y-axis
-    # for color,paths in parse_results['boundaries'].items():
-    # 	for path in paths:
-    # 		for vertex in path:
-    # 			vertex[1] = 610-vertex[1]
     return parse_results
 
 

@@ -81,7 +81,7 @@ class DXFParser:
         self.y_min = -self.bedwidth[1]
         self.y_max = 0.0
         
-    def parse(self, dxfInput):
+    def parse(self, dxfInput, forced_unit):
         dxfStream = io.StringIO(unicode(dxfInput.replace('\r\n','\n')))
         dwg = dxfgrabber.read(dxfStream)
         if not dwg:
@@ -91,7 +91,11 @@ class DXFParser:
         # TODO: check DXF version to see if INSUNITS is expected
         # TODO: try and guess mm vs in based on max x/y
         # set up unit conversion
-        self.units = dwg.header.setdefault('$INSUNITS', 0)
+        if forced_unit == 0 or forced_unit == None:
+            self.units = dwg.header.setdefault('$INSUNITS', 0)
+        else:
+            print("using forced_unit", forced_unit)
+            self.units = forced_unit
         if self.verbose:
             print("dxf units read %s, default 0 " % self.units)
         if self.units == 0:
@@ -103,7 +107,7 @@ class DXFParser:
         else:
             print("DXF units: >%s< unsupported" % self.units)
             raise ValueError
-        
+            
         if self.verbose:
             print("DXF version: {}".format(dwg.dxfversion))
             print("header var count: ", len(dwg.header))
@@ -188,7 +192,6 @@ class DXFParser:
         y2 = cy + r * sin(theta2)
         path = []
         self.makeArc(path, x1, y1, r, r, 0, large_arc_flag, sweep_flag, x2, y2)
-        self.unitizePath(path)
         self.add_path_by_color(entity.color, path)
 
     def addCircle(self, entity):
@@ -212,8 +215,9 @@ class DXFParser:
 
     def add_path_by_color(self, color, path):
         flippedPath = self.flipPathAxis(path, "X")
-        if flippedPath == path:
-            print("caution: flippedPath %s == path %s" % (flippedPath, path))
+        if self.debug:
+            if flippedPath == path:
+                print("caution: flippedPath %s == path %s" % (flippedPath, path))
         if color == 1:
             self.red_colorLayer.append(flippedPath)
         elif color == 2:
@@ -253,13 +257,13 @@ class DXFParser:
         for x, y in path:
             if axis == 'X':
                 x1 = x
-                y1 = self.cos180 * y
+                y1 = round(self.cos180 * y, self.round)
             elif axis == 'Y':
-                x1 = self.cos180 * x
+                x1 = round(self.cos180 * x, self.round)
                 y1 = y
             elif axis == 'Z':
-                x1 = self.cos180 * x - self.sin180 * y
-                y1 = self.sin180 * x + self.cos180 * y
+                x1 = round(self.cos180 * x - self.sin180 * y, self.round)
+                y1 = round(self.sin180 * x + self.cos180 * y, self.round)
             self.setMinMax(x1, y1)
             flippedPath.append([x1, y1])
 
@@ -357,16 +361,16 @@ class DXFParser:
                 thisColor = self.colorLayers[color]
                 for i in range(0, len(thisColor)):
                     if thisColor[i][0][0] < 0 or thisColor[i][0][0] > self.bedwidth[0]:
-                        print("WARN: outside of bounds x0 ",  thisColor[i])
+                        print("WARN: outside of bounds x0 ",  thisColor[i][0][0])
                         raise ValueError
                     elif thisColor[i][0][1] < 0 or thisColor[i][0][1] > self.bedwidth[1]:
-                        print("WARN: outside of bounds y0 ",  thisColor[i])
+                        print("WARN: outside of bounds y0 ",  thisColor[i][0][1])
                         raise ValueError
                     elif thisColor[i][1][0] < 0 or thisColor[i][1][0] > self.bedwidth[0]:
-                        print("WARN: outside of bounds x1 ",  thisColor[i])
+                        print("WARN: outside of bounds x1 ",  thisColor[i][1][0])
                         raise ValueError
                     elif thisColor[i][1][1] < 0 or thisColor[i][1][1] > self.bedwidth[1]:
-                        print("WARN: outside of bounds y1 ",  thisColor[i])
+                        print("WARN: outside of bounds y1 ",  thisColor[i][1][1])
                         raise ValueError
         
 
@@ -380,8 +384,13 @@ class DXFParser:
                 print("x_max %f" % self.x_max)
                 print("xShift %f" % xShift)
         if self.y_min < self.bedwidth[1]:
-            yShift = 0.0 - self.y_min - self.y_max
+            self.y_min += 0
+            if self.y_min == 0:
+                yShift = 0.0 - self.y_max
+            else:
+                yShift = self.bedwidth[1]
             if self.debug:
+                print("y bedwidth %f" % self.bedwidth[1])
                 print("y_min %f" % self.y_min)
                 print("y_max %f" % self.y_max)
                 print("yShift %f" % yShift)
@@ -416,9 +425,3 @@ class DXFParser:
         print ("don't know how to convert units ", units)
         raise ValueError
 
-    def unitizePath(self, path):
-        retPath = []
-        for point in path:
-            point[0] = self.unitize(point[0])
-            point[1] = self.unitize(point[1])
-            

@@ -13,7 +13,6 @@
 <script src="/js/jquery.toastmessage.js"></script>
 <script src="/js/jquery.hotkeys.js"></script>
 <script src="/js/settings.js"></script>
-<script src="/js/app_svgreader.js"></script>
 <script src="/js/app_datahandler.js"></script>
 <script src="/js/app_canvas.js"></script>
 <script src="/js/app.js"></script>
@@ -205,6 +204,9 @@
                                             <li><a id="svg_import_90_btn" href="#">Import 90dpi SVG</a></li>
                                             <li><a id="svg_import_96_btn" href="#">Import 96dpi SVG</a></li>
                                                 <li class="divider"></li>
+                                            <li><a id="dxf_import_mm_btn" href="#">Import mm DXF</a></li>
+                                            <li><a id="dxf_import_in_btn" href="#">Import in DXF</a></li>
+                                                <li class="divider"></li>
                                             <li><a id="svg_import_nop_btn" href="#">Import without Optimizing</a></li>
                                         </ul>
                                     </div>
@@ -212,7 +214,7 @@
 
                                         <div class="pull-left">
                                             <form id="svg_upload_form" action="#" onsubmit="return false;">
-                                                <input type="file" id="svg_upload_file" name="data" style="visibility:hidden; position:fixed">
+                                                <input type="file" id="upload_file" name="data" style="visibility:hidden; position:fixed">
                                             </form>
                                         </div>
                                     </div>
