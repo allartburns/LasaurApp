@@ -7,14 +7,19 @@ html {
 body {
   /* Margin bottom by footer height */
   margin-bottom: 60px;
+  overflow:hidden;
+  background-color: #f2f2f2;
+}
+a, a:active, a:focus {
+  outline:none
 }
 .footer {
-  position: absolute;
+  /*position: absolute;*/
   bottom: 0;
   width: 100%;
   /* Set the fixed height of the footer here */
   height: 60px;
-  background-color: #f5f5f5;
+  /*background-color: #f0f0f0;*/
 }
 
 
@@ -22,11 +27,21 @@ body {
 -------------------------------------------------- */
 /* Not required for template or sticky footer method. */
 
-#main-navbar {
+#main_navbar {
     margin:0;
+    border:0;
+    background-color: transparent;
 }
 
-#main-container {
+.menu_btn {
+  padding: 8px;
+}
+
+.footer_btn {
+  padding: 12px;
+}
+
+#main_container {
   /*position:fixed;
   top:52px;
   left:0;*/
@@ -37,6 +52,17 @@ body {
 }
 .container .text-muted {
   margin: 20px 0;
+}
+
+#canvas_container {
+  position: relative;
+  height: 100%;
+  background-color: #ffffff;
+}
+
+#job_canvas {
+  height: 100%;
+  background-color: #ffffff;
 }
 
 .footer > .container {
@@ -64,4 +90,27 @@ div.log_warning {
 }
 div.log_error {
   border: 2px solid red;
+}
+
+
+.pass_color_dropdown > li > a:hover {
+    background-color: transparent;
+    background-image: none;
+    color: white;
+}
+
+
+.spinning {
+    animation: spin 1s infinite linear;
+    transform-origin: 49.5% 49.7%;
+}
+
+@keyframes spin {
+    from { transform: scale(1) rotate(0deg); }
+    to { transform: scale(1) rotate(360deg); }
+}
+
+#status_btn_div ul li {
+  padding-top:2px;
+  padding-bottom:2px;
 }

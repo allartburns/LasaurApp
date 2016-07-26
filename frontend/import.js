@@ -1,5 +1,5 @@
 
-var current_name = ""
+var import_name = ""
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -7,13 +7,6 @@ var current_name = ""
 
 
 $(document).ready(function(){
-
-  // open button
-  $('#open_btn').click(function(e){
-    e.preventDefault()
-    $('#open_file_fld').trigger('click')
-  })
-
   // file upload form
   $('#open_file_fld').change(function(e){
     e.preventDefault()
@@ -42,9 +35,12 @@ $(document).ready(function(){
     }
 
     // reset file input form field so change event also triggers again
-    current_name = $('#open_file_fld').val().split('\\').pop().split('/').pop()
+    var file_fld = $('#open_file_fld').val()
+    file_fld = file_fld.slice(file_fld.lastIndexOf('\\')+1) || file_fld  // drop unix path
+    file_fld = file_fld.slice(file_fld.lastIndexOf('/')+1) || file_fld   // drop windows path
+    import_name = file_fld.slice(0, file_fld.lastIndexOf('.')) || file_fld  // drop extension
     $('#open_file_fld').val('')
-  });
+  })
 
 
 
@@ -52,32 +48,21 @@ $(document).ready(function(){
     var job = e.target.result
 
     // notify parsing started
-    $().uxmessage('notice', "parsing "+current_name+" ...")
+    $().uxmessage('notice', "parsing "+import_name+" ...")
     // large file note
     if (job.length > 102400) {
       $().uxmessage('notice', "Big file! May take a few minutes.")
     }
 
     // send to backend
-    var load_request = {'job':job, 'name':current_name, 'optimize':true}
-    post_request({
+    var load_request = {'job':job, 'name':import_name, 'optimize':true}
+    request_post({
       url:'/load',
       data: load_request,
       success: function (jobname) {
-        $().uxmessage('notice', "Parsed "+current_name+".")
-        $().uxmessage('notice', jobname)
-        // get parsed geometry in lsa format
-        get_request({
-          url:'/get/'+jobname,
-          success: function (data) {
-            // alert(JSON.stringify(data));
-            handleParsedGeometry(data);
-          },
-          error: function (data) {
-            $().uxmessage('error', "/get error.")
-            $().uxmessage('error', JSON.stringify(data), false)
-          }
-        })
+        $().uxmessage('notice', "Parsed "+jobname+".")
+        queue_update()
+        import_open(jobname)
       },
       error: function (data) {
         $().uxmessage('error', "/load error.")
@@ -90,33 +75,47 @@ $(document).ready(function(){
 
   }
 
+})  // ready
 
 
-  function handleParsedGeometry(job) {
-    // job is an lsa dict
 
-    JobHandler.set(job, current_name, true)
-    JobHandler.draw()
-
-
-    // debug, show image, stats
-    // if ('rasters' in job) {
-      // for (var i=0; i<job.rasters.length; i++) {
-      //   var raster = job.rasters[i];
-      //   // convert base64 to Image object
-      //   var imgid = 'rasterimg' + i;
-      //   $('#tab_import').append('<img id="'+imgid+'" src="'+raster['image']+'">');
-      //   var img = document.getElementById(imgid);
-      //
-      //   // stats
-      //   raster_stats = {'pos':raster['pos'],
-      //                   'size_mm':raster['size_mm'],
-      //                   'size_px':[img.width, img.height],
-      //                   'len':raster['image'].length}
-      //   $('#tab_import').append('<p>'+JSON.stringify(raster_stats)+'</p>');
-      // }
-    // }
+function import_open(jobname, from_library) {
+  from_library = typeof from_library !== 'undefined' ? from_library : false  // default to false
+  // get job in lsa format
+  var url = '/get/'+jobname
+  if (from_library === true) {
+    url = '/get_library/'+jobname
   }
+  request_get({
+    url: url,
+    success: function (job) {
+      // alert(JSON.stringify(data))
+      // $().uxmessage('notice', data)
+      jobhandler.set(job, jobname, true)
+      jobhandler.render()
+      jobhandler.draw()
 
-
-});  // ready
+      // debug, show image, stats
+      // if ('rasters' in job) {
+        // for (var i=0; i<job.rasters.length; i++) {
+        //   var raster = job.rasters[i];
+        //   // convert base64 to Image object
+        //   var imgid = 'rasterimg' + i;
+        //   $('#tab_import').append('<img id="'+imgid+'" src="'+raster['image']+'">');
+        //   var img = document.getElementById(imgid);
+        //
+        //   // stats
+        //   raster_stats = {'pos':raster['pos'],
+        //                   'size_mm':raster['size_mm'],
+        //                   'size_px':[img.width, img.height],
+        //                   'len':raster['image'].length}
+        //   $('#tab_import').append('<p>'+JSON.stringify(raster_stats)+'</p>');
+        // }
+      // }
+    },
+    error: function (data) {
+      $().uxmessage('error', "/get error.")
+      $().uxmessage('error', JSON.stringify(data), false)
+    }
+  })
+}

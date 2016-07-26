@@ -11,6 +11,7 @@ import threading
 import webbrowser
 import wsgiref.simple_server
 import bottle
+import traceback
 from config import conf
 import driveboard
 import jobimport
@@ -18,7 +19,7 @@ import jobimport
 
 __author__  = 'Stefan Hechenberger <stefan@nortd.com>'
 
-
+DEBUG = False
 bottle.BaseRequest.MEMFILE_MAX = 1024*1024*100 # max 100Mb files
 
 
@@ -73,15 +74,17 @@ def favicon_handler():
 @bottle.auth_basic(checkuser)
 def temp():
     """Create temp file for downloading."""
-    filedata = bottle.request.forms.get('filedata')
+    load_request = json.loads(bottle.request.forms.get('load_request'))
+    job = load_request.get('job')  # always a string
     fp = tempfile.NamedTemporaryFile(mode='w', delete=False)
     filename = fp.name
     with fp:
-        fp.write(filedata)
+        fp.write(job)
         fp.close()
-    print filedata
+    print job
     print "file stashed: " + os.path.basename(filename)
-    return os.path.basename(filename)
+    # return os.path.basename(filename)
+    return json.dumps(os.path.basename(filename))
 
 
 @bottle.route('/download/<filename>/<dlname>')
@@ -107,79 +110,96 @@ def config():
 def status():
     return json.dumps(driveboard.status())
 
+
 @bottle.route('/homing')
 @bottle.auth_basic(checkuser)
 @checkserial
 def homing():
     driveboard.homing()
+    return '{}'
 
 @bottle.route('/feedrate/<val:float>')
 @bottle.auth_basic(checkuser)
 @checkserial
 def feedrate(val):
     driveboard.feedrate(val)
+    return '{}'
 
 @bottle.route('/intensity/<val:float>')
 @bottle.auth_basic(checkuser)
 @checkserial
 def intensity(val):
     driveboard.intensity(val)
+    return '{}'
 
 @bottle.route('/relative')
 @bottle.auth_basic(checkuser)
 @checkserial
 def relative():
     driveboard.relative()
+    return '{}'
 
 @bottle.route('/absolute')
 @bottle.auth_basic(checkuser)
 @checkserial
 def absolute():
     driveboard.absolute()
+    return '{}'
 
 @bottle.route('/move/<x:float>/<y:float>/<z:float>')
 @bottle.auth_basic(checkuser)
 @checkserial
 def move(x, y, z):
     driveboard.move(x, y, z)
+    return '{}'
 
 @bottle.route('/air_on')
 @bottle.auth_basic(checkuser)
 @checkserial
 def air_on():
     driveboard.air_on()
+    return '{}'
 
 @bottle.route('/air_off')
 @bottle.auth_basic(checkuser)
 @checkserial
 def air_off():
     driveboard.air_off()
+    return '{}'
 
 @bottle.route('/aux1_on')
 @bottle.auth_basic(checkuser)
 @checkserial
 def aux1_on():
     driveboard.aux1_on()
+    return '{}'
 
 @bottle.route('/aux1_off')
 @bottle.auth_basic(checkuser)
 @checkserial
 def aux1_off():
     driveboard.aux1_off()
+    return '{}'
 
 @bottle.route('/offset/<x:float>/<y:float>/<z:float>')
 @bottle.auth_basic(checkuser)
 @checkserial
 def offset(x, y, z):
+    if not driveboard.status()['ready']:
+        bottle.abort(400, "Machine not ready.")
     driveboard.def_offset_custom(x, y, z)
     driveboard.sel_offset_custom()
+    return '{}'
 
 @bottle.route('/clear_offset')
 @bottle.auth_basic(checkuser)
 @checkserial
 def clear_offset():
+    if not driveboard.status()['ready']:
+        bottle.abort(400, "Machine not ready.")
     driveboard.def_offset_custom(0,0,0)
     driveboard.sel_offset_table()
+    return '{}'
 
 
 
@@ -256,16 +276,14 @@ def _clear(limit=None):
 
 def _add(job, name):
     # add job (lsa string)
-    # delete excessive job files
-    num_to_del = (len(_get_sorted('*.lsa')) +1) - conf['max_jobs_in_list']
-    _clear(num_to_del)
-    # add
+    # overwrites file if already exists, use _unique_name(name) to avoid
     namepath = os.path.join(conf['stordir'], name.strip('/\\')+'.lsa')
-    if os.path.exists(namepath):
-        bottle.abort(400, "File name exists.")
     with open(namepath, 'w') as fp:
         fp.write(job)
         print "file saved: " + namepath
+    # delete excessive job files
+    num_to_del = (len(_get_sorted('*.lsa')) +1) - conf['max_jobs_in_list']
+    _clear(num_to_del)
 
 def _unique_name(jobname):
     files = _get_sorted('*.lsa*', stripext=True)
@@ -291,23 +309,27 @@ def load():
         job: Parsed lsa or job string (lsa, svg, dxf, or ngc).
         name: name of the job (string)
         optimize: flag whether to optimize (bool)
+        overwrite: flag whether to overwite file if present (bool)
     """
     load_request = json.loads(bottle.request.forms.get('load_request'))
     job = load_request.get('job')  # always a string
     name = load_request.get('name')
-    optimize = load_request.get('optimize')
+    optimize = load_request.get('optimize') or True
+    overwrite = load_request.get('overwrite') or False
     # sanity check
-    if job is None or name is None or optimize is None:
+    if job is None or name is None:
         bottle.abort(400, "Invalid request data.")
     # convert
     try:
         job = jobimport.convert(job, optimize=optimize)
     except TypeError:
+        if DEBUG: traceback.print_exc()
         bottle.abort(400, "Invalid file type.")
 
-    altname = _unique_name(name)
-    _add(json.dumps(job), altname)
-    return json.dumps(altname)
+    if not overwrite:
+        name = _unique_name(name)
+    _add(json.dumps(job), name)
+    return json.dumps(name)
 
 
 
@@ -333,7 +355,7 @@ def listing(kind=None):
 def get(jobname='woot'):
     """Get a queue job in .lsa format."""
     base, name = os.path.split(_get_path(jobname))
-    return bottle.static_file(name, root=base, mimetype='text/plain')
+    return bottle.static_file(name, root=base, mimetype='application/json')
 
 
 @bottle.route('/star/<jobname>')
@@ -345,6 +367,7 @@ def star(jobname):
         os.rename(jobpath, jobpath + '.starred')
     else:
         bottle.abort(400, "No such file.")
+    return '{}'
 
 
 @bottle.route('/unstar/<jobname>')
@@ -356,6 +379,7 @@ def unstar(jobname):
         os.rename(jobpath, jobpath[:-8])
     else:
         bottle.abort(400, "No such file.")
+    return '{}'
 
 
 @bottle.route('/remove/<jobname>')
@@ -365,6 +389,7 @@ def remove(jobname):
     jobpath = _get_path(jobname)
     os.remove(jobpath)
     print "INFO: file deleted: " + jobpath
+    return '{}'
 
 
 @bottle.route('/clear')
@@ -372,6 +397,7 @@ def remove(jobname):
 def clear():
     """Clear job list."""
     _clear()
+    return '{}'
 
 
 
@@ -390,7 +416,7 @@ def listing_library():
 def get_library(jobname):
     """Get a library job in .lsa format."""
     base, name = os.path.split(_get_path(jobname, library=True))
-    return bottle.static_file(name, root=base, mimetype='text/plain')
+    return bottle.static_file(name, root=base, mimetype='application/json')
 
 
 @bottle.route('/load_library/<jobname>')
@@ -402,10 +428,6 @@ def load_library(jobname):
     _add(job, jobname)
     return json.dumps(jobname)
 
-@bottle.route('/test')
-@bottle.auth_basic(checkuser)
-def test(jobname):
-    return 100/0.0
 
 
 ### JOB EXECUTION
@@ -419,6 +441,25 @@ def run(jobname):
     if not driveboard.status()['ready']:
         bottle.abort(400, "Machine not ready.")
     driveboard.job(json.loads(job))
+    return '{}'
+
+
+@bottle.route('/run', method='POST')
+@bottle.auth_basic(checkuser)
+@checkserial
+def run_direct():
+    """Run an lsa job directly, by-passing the queue.
+    Args:
+        (Args come in through the POST request.)
+        job: Parsed lsa job.
+    """
+    load_request = json.loads(bottle.request.forms.get('load_request'))
+    job = load_request.get('job')  # always a string
+    # sanity check
+    if job is None:
+        bottle.abort(400, "Invalid request data.")
+    driveboard.job(json.loads(job))
+    return '{}'
 
 
 @bottle.route('/pause')
@@ -427,6 +468,7 @@ def run(jobname):
 def pause():
     """Pause a job gracefully."""
     driveboard.pause()
+    return '{}'
 
 
 @bottle.route('/unpause')
@@ -435,6 +477,7 @@ def pause():
 def unpause():
     """Resume a paused job."""
     driveboard.unpause()
+    return '{}'
 
 
 @bottle.route('/stop')
@@ -443,6 +486,7 @@ def unpause():
 def stop_():
     """Halt machine immediately and purge job."""
     driveboard.stop()
+    return '{}'
 
 
 @bottle.route('/unstop')
@@ -451,6 +495,7 @@ def stop_():
 def unstop():
     """Recover machine from stop mode."""
     driveboard.unstop()
+    return '{}'
 
 
 
@@ -458,7 +503,7 @@ def unstop():
 ### MCU MANAGMENT
 
 @bottle.route('/build')
-@bottle.route('/build/<firmware>')
+# @bottle.route('/build/<firmware>')
 @bottle.auth_basic(checkuser)
 def build(firmware_name=None):
     """Build firmware from firmware/src files."""
@@ -469,6 +514,8 @@ def build(firmware_name=None):
         return_code = driveboard.build(firmware_name=buildname)
     if return_code != 0:
         bottle.abort(400, "Build failed.")
+    else:
+        return '{"flash_url": "/flash/%s.hex"}' % (buildname)
 
 
 @bottle.route('/flash')
@@ -482,18 +529,19 @@ def flash(firmware=None):
         return_code = driveboard.flash(firmware_file=firmware)
     if return_code != 0:
         bottle.abort(400, "Flashing failed.")
+    else:
+        return '{}'
 
 
 @bottle.route('/reset')
 @bottle.auth_basic(checkuser)
 def reset():
     """Reset MCU"""
-    connected = driveboard.connected()
-    if connected:
-        driveboard.close()
-    driveboard.reset()
-    if connected:
-        driveboard.connect()
+    try:
+        driveboard.reset()
+    except IOError:
+        bottle.abort(400, "Reset failed.")
+    return '{}'
 
 
 @bottle.route('/hello/<name>')
@@ -536,6 +584,9 @@ def start(threaded=True, browser=False, debug=False):
         Derived from WSGIRefServer.run()
         to have control over the main loop.
     """
+    global DEBUG
+    DEBUG = debug
+
     class FixedHandler(wsgiref.simple_server.WSGIRequestHandler):
         def address_string(self): # Prevent reverse DNS lookups please.
             return self.client_address[0]
