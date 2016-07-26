@@ -1,5 +1,6 @@
 
 // module to handle job data
+// read, write, draw, stats, cleanup/filter
 
 
 // {
@@ -11,7 +12,7 @@
 //                   "paths": [0],          # paths by index
 //                   "relative": True,      # optional, default: False
 //                   "seekrate": 6000,      # optional, rate to first vertex
-//                   "feedrate": 2000,      # optional, rate to other verteces
+//                   "feedrate": 2000,      # optional, rate to other vertices
 //                   "intensity": 100,      # optional, default: 0 (in percent)
 //                   "pierce_time": 0,      # optional, default: 0
 //                   "air_assist": "pass",  # optional (feed, pass, off), default: pass
@@ -22,7 +23,7 @@
 //           [                              # list of paths
 //               [                          # list of polylines
 //                   [                      # list of verteces
-//                       [0,-10, 0],        # list of coords
+//                       [0,-10, 0],        # list of coordinates
 //                   ],
 //               ],
 //           ],
@@ -56,18 +57,26 @@
 
 
 
-JobHandler = {
+jobhandler = {
 
   vector : {},
   raster : {},
   stats : {},
   name : "",
+  job_group : undefined,
+  scale : undefined,
 
   clear : function() {
     this.vector = {}
     this.raster = {}
     this.stats = {}
     name = ""
+    jobview_clear()
+    passes_clear()
+    $('#job_info_name').html('')
+    $('#job_info_length').html('')
+    $('#info_content').html('')
+    $('#info_btn').hide()
   },
 
   isEmpty : function() {
@@ -86,6 +95,11 @@ JobHandler = {
     this.name = name
     $('title').html("LasaurApp - " + name)
 
+    // handle json string representations as well
+    if (typeof(job) === 'string') {
+      job = JSON.parse(job)
+    }
+
     if ('vector' in job) {
       this.vector = job.vector
       if (optimize) {
@@ -103,11 +117,16 @@ JobHandler = {
           image.data = new Image()
           image.data.src = img_base64
           // scale to have one pixel match raster_size (beam width for raster)
-          // image.data.width = Math.round(image.size[0]/appconfig_main.raster_size);
-          // image.data.height = Math.round(image.size[1]/appconfig_main.raster_size);
+          // image.data.width = Math.round(image.size[0]/app_config_main.raster_size);
+          // image.data.height = Math.round(image.size[1]/app_config_main.raster_size);
         }
       }
     }
+
+    this.normalizeColors()
+
+    // passes, show in gui
+    passes_set_assignments(job)
 
     // stats
     if ('stats' in job) {
@@ -115,6 +134,21 @@ JobHandler = {
     } else {
       this.calculateBasicStats()
     }
+
+    // job info
+    $('#job_info_name').html(this.name)
+    $('#info_btn').show()
+    // info modal
+    var html = ''
+    html += "name : " + this.name + "<br>"
+    // html += "length : " + job_length_m + "m<br>"
+    if ('paths' in this.vector) {
+      html += "vector paths : " + this.vector.paths.length + "<br>"
+    }
+    if ('raster' in this.vector) {
+      html += "raster images : " + this.raster.images.length + "<br>"
+    }
+    $('#info_content').html(html)
   },
 
 
@@ -145,35 +179,13 @@ JobHandler = {
 
   // rendering //////////////////////////////////
 
-  draw : function () {
+  render : function () {
     var x = 0;
     var y = 0;
     // clear canvas
-    paper.project.clear()
-    // figure out scale
-    var w_workspace = appconfig_main.workspace[0]
-    var h_workspace = appconfig_main.workspace[1]
-    var aspect_workspace = w_workspace/h_workspace
-    var w_canvas = $('#job-canvas').innerWidth()
-    var h_canvas = $('#job-canvas').innerHeight()
-    var aspect_canvas = w_canvas/h_canvas
-    var scale = w_canvas/w_workspace  // default for same aspect
-    if (aspect_canvas > aspect_workspace) {
-      // canvas wider, fit by height
-      var scale = h_canvas/h_workspace
-      // indicate border, only on one side necessary
-      var w_scaled = w_workspace*scale
-      var p_bound = new paper.Path()
-      p_bound.fillColor = '#eeeeee'
-      p_bound.closed = true
-      p_bound.add([w_scaled,0],[w_canvas,0],[w_canvas,h_canvas],[w_scaled,h_canvas])
-    } else if (aspect_workspace > aspect_canvas) {
-      var h_scaled = h_workspace*scale
-      var p_bound = new paper.Path()
-      p_bound.fillColor = '#eeeeee'
-      p_bound.closed = true
-      p_bound.add([0,h_scaled],[w_canvas,h_scaled],[w_canvas,h_canvas],[0,h_canvas])
-    }
+    // paper.project.clear()
+    jobview_clear()
+    var scale = jobview_mm2px
 
     // rasters
     if ('images' in this.raster) {
@@ -192,7 +204,7 @@ JobHandler = {
         // var image = raster.image;
         // var pixwidth = image.width;
         // var pixheight = image.height;
-        // var offset = appconfig_main.raster_offset;
+        // var offset = app_config_main.raster_offset;
         //
         // var ppmmX = pixwidth / width;
         // var ppmmY = pixheight / height;
@@ -216,7 +228,7 @@ JobHandler = {
         //   canvas.line(x1 - offset, y, x1, y);
         // }
 
-        x = pos_x + img_w + appconfig_main.raster_offset;
+        x = pos_x + img_w + app_config_main.raster_offset;
         y = pos_y + img_h;
       }
     }
@@ -224,20 +236,28 @@ JobHandler = {
 
     // paths
     if ('paths' in this.vector) {
+      jobview_feedLayer.activate()
+      this.job_group = new paper.Group()
       for (var i=0; i<this.vector.paths.length; i++) {
         var path = this.vector.paths[i]
+        jobview_feedLayer.activate()
+        var group = new paper.Group()
+        this.job_group.addChild(group)
         for (var j=0; j<path.length; j++) {
           var pathseg = path[j]
           if (pathseg.length > 0) {
 
+            jobview_seekLayer.activate()
             var p_seek = new paper.Path()
-            p_seek.strokeColor = '#aaaaaa'
+            p_seek.strokeColor = app_config_main.seek_color
             p_seek.add([x,y])
             x = pathseg[0][0]*scale
             y = pathseg[0][1]*scale
             p_seek.add([x,y])
 
+            jobview_feedLayer.activate()
             var p_feed = new paper.Path()
+            group.addChild(p_feed);
             if ('colors' in this.vector && i < this.vector.colors.length) {
               p_feed.strokeColor = this.vector.colors[i]
             } else {
@@ -252,139 +272,119 @@ JobHandler = {
             }
           }
         }
+        // // draw group's bounding box
+        // jobview_boundsLayer.activate()
+        // var group_bounds = new paper.Path.Rectangle(group.bounds)
+        // group_bounds.strokeColor = app_config_main.bounds_color
       }
     }
-    // finally commit draw
+
+  },
+
+
+  renderBounds : function () {
+    jobview_boundsLayer.removeChildren()
+    jobview_boundsLayer.activate()
+    // var all_bounds = new paper.Path.Rectangle(this.job_group.bounds)
+    // var bbox_all = this.stats['_all_'].bbox
+    var scale = jobview_mm2px
+    var bbox = this.getActivePassesBbox()
+    var all_bounds = new paper.Path.Rectangle(
+                                    new paper.Point(bbox[0]*scale,bbox[1]*scale),
+                                    new paper.Point(bbox[2]*scale,bbox[3]*scale) )
+    // all_bounds.strokeColor = app_config_main.bounds_color
+    all_bounds.strokeWidth = 2
+    all_bounds.strokeColor = '#666666'
+    all_bounds.dashArray = [2, 4]
+  },
+
+
+  draw : function () {
     paper.view.draw()
   },
-
-  draw_bboxes : function (canvas, scale) {
-    // draw with bboxes by color
-    // only include colors that are in passe
-    var bbox_combined = [Infinity, Infinity, 0, 0];
-
-    function drawbb(stats, obj) {
-      var xmin = stats['bbox'][0]*scale;
-      var ymin = stats['bbox'][1]*scale;
-      var xmax = stats['bbox'][2]*scale;
-      var ymax = stats['bbox'][3]*scale;
-      canvas.stroke('#dddddd');
-      canvas.line(xmin,ymin,xmin,ymax);
-      canvas.line(xmin,ymax,xmax,ymax);
-      canvas.line(xmax,ymax,xmax,ymin);
-      canvas.line(xmax,ymin,xmin,ymin);
-      obj.bboxExpand(bbox_combined, xmin, ymin);
-      obj.bboxExpand(bbox_combined, xmax, ymax);
-    }
-
-    // rasters
-    if ('rasters' in this.stats) {
-      drawbb(this.stats['rasters'], this);
-    }
-    // for all job colors
-    for (var color in this.getPassesColors()) {
-      drawbb(this.stats[color], this);
-    }
-    // draw global bbox
-    xmin = bbox_combined[0];
-    ymin = bbox_combined[1];
-    xmax = bbox_combined[2];
-    ymax = bbox_combined[3];
-    canvas.stroke('#dddddd');
-    canvas.line(xmin,ymin,xmin,ymax);
-    canvas.line(xmin,ymax,xmax,ymax);
-    canvas.line(xmax,ymax,xmax,ymin);
-    canvas.line(xmax,ymin,xmin,ymin);
-  },
-
 
 
   // passes and colors //////////////////////////
 
-  // setPassesFromLasertags : function(lasertags) {
-  //   // lasertags come in this format
-  //   // (pass_num, feedrate, units, intensity, units, color1, color2, ..., color6)
-  //   // [(12, 2550, '', 100, '%', ':#fff000', ':#ababab', ':#ccc999', '', '', ''), ...]
-  //   this.passes = [];
-  //   for (var i=0; i<lasertags.length; i++) {
-  //     var vals = lasertags[i];
-  //     if (vals.length == 11) {
-  //       var pass = vals[0];
-  //       var feedrate = vals[1];
-  //       var intensity = vals[3];
-  //       if (typeof(pass) === 'number' && pass > 0) {
-  //         //make sure to have enough pass widgets
-  //         var passes_to_create = pass - this.passes.length
-  //         if (passes_to_create >= 1) {
-  //           for (var k=0; k<passes_to_create; k++) {
-  //             this.passes.push({'colors':[], 'feedrate':1200, 'intensity':10})
-  //           }
-  //         }
-  //         pass = pass-1;  // convert to zero-indexed
-  //         // feedrate
-  //         if (feedrate != '' && typeof(feedrate) === 'number') {
-  //           this.passes[pass]['feedrate'] = feedrate;
-  //         }
-  //         // intensity
-  //         if (intensity != '' && typeof(intensity) === 'number') {
-  //           this.passes[pass]['intensity'] = intensity;
-  //         }
-  //         // colors
-  //         for (var ii=5; ii<vals.length; ii++) {
-  //           var col = vals[ii];
-  //           if (col.slice(0,1) == '#') {
-  //             this.passes[pass]['colors'].push(col);
-  //           }
-  //         }
-  //       } else {
-  //         $().uxmessage('error', "invalid lasertag (pass number)");
-  //       }
-  //     } else {
-  //       $().uxmessage('error', "invalid lasertag (num of args)");
-  //     }
-  //   }
-  // },
+  setPassesFromGUI : function() {
+    // read pass/color assinments from gui and set in this.vector.passes
+    // assigns paths to passes and sets feedrate and intensity
+    var assignments = passes_get_assignments()
+    // [{"colors":[], "feedrate":1500, "intensity":100}, ...]
+    var passes = this.vector.passes = []
+    for (var i = 0; i < assignments.length; i++) {
+      var assignment = assignments[i]
+      //convert corlors to path indices
+      var path_indices = []
+      for (var ii = 0; ii < assignment.colors.length; ii++) {
+        path_indices.push(this.vector.colors.indexOf(assignment.colors[ii]))
+      }
+      if (path_indices.length) {
+        passes.push({"paths":path_indices, "feedrate":assignment.feedrate,
+        "intensity":assignment.intensity})
+      }
+    }
+    // console.log(this.vector.passes)
+  },
 
-  // getPasses : function() {
-  //   return this.passes;
-  // },
-  //
-  // hasPasses : function() {
-  //   if (this.passes.length > 0) {return true}
-  //   else {return false}
-  // },
-  //
-  // clearPasses : function() {
-  //   this.passes = [];
-  // },
-  //
-  // getPassesColors : function() {
-  //   var all_colors = {};
-  //   for (var i=0; i<this.passes.length; i++) {
-  //     var mapping = this.passes[i];
-  //     var colors = mapping['colors'];
-  //     for (var c=0; c<colors.length; c++) {
-  //       var color = colors[c];
-  //       all_colors[color] = true;
-  //     }
-  //   }
-  //   return all_colors;
-  // },
-  //
-  // getAllColors : function() {
-  //   // return list of colors
-  //   return Object.keys(this.paths_by_color);
-  // },
-  //
-  // getColorOrder : function() {
-  //     var color_order = {};
-  //     var color_count = 0;
-  //     for (var color in this.paths_by_color) {
-  //       color_order[color] = color_count;
-  //       color_count++;
-  //     }
-  //     return color_order
-  // },
+
+  normalizeColors : function() {
+    var random_color_flag = false
+    // randomized colors if no colors assigned
+    if (!('colors' in this.vector)) {
+      if ('paths' in this.vector && this.vector.paths.length > 0) {
+        // no color assignments, paths exist
+        random_color_flag = true
+      }
+    } else if ('paths' in this.vector && this.vector.paths.length > 0) {
+      if (this.vector.paths.length != this.vector.colors.length) {
+        // pass-color assignments do not match
+        console.log("jobhandler.normalizeColors: colors-paths mismatch")
+        random_color_flag = true
+      }
+    }
+    // assign random colors
+    if (random_color_flag) {
+      this.vector.colors = []
+      this.vector.colors.push('#000000')  // first always black
+      for (var i = 1; i < this.vector.paths.length; i++) {
+        var random_color = '#'+(Math.random()*0xaaaaaa<<0).toString(16)
+        this.vector.colors.push(random_color)
+      }
+    }
+  },
+
+
+  getAllColors : function() {
+    // return list of colors
+    if ('colors' in this.vector) {
+      return this.vector.colors
+    } else {
+      return []
+    }
+  },
+
+
+  selectColor : function(color) {
+    // select paths by color in job view
+    var index = this.vector.colors.indexOf(color)
+    for (var i = 0; i < this.job_group.children.length; i++) {
+      if (i==index) {
+        this.job_group.children[i].selected = true
+        var color_group = this.job_group.children[i]
+        jobview_color_selected = color
+        setTimeout(function() {
+          color_group.selected = false
+          jobview_color_selected = undefined
+          paper.view.draw()
+        }, 1500);
+      } else {
+        this.job_group.children[i].selected = false
+      }
+    }
+    paper.view.draw()
+  },
+
 
 
 
@@ -406,25 +406,28 @@ JobHandler = {
     if ('paths' in this.vector) {
       this.stats.paths = []
       for (var k=0; k<this.vector.paths.length; k++) {
-        var x_prev = 0
-        var y_prev = 0
+        var path = this.vector.paths[k]
         var path_length = 0
         var path_bbox = [Infinity, Infinity, -Infinity, -Infinity]
-        var path = this.vector.paths[k]
-        if (path.length > 1) {
-          var x = path[0][0]
-          var y = path[0][1]
-          this.bboxExpand(path_bbox, x, y)
-          x_prev = x
-          y_prev = y
-          for (vertex=1; vertex<path.length; vertex++) {
-            var x = path[vertex][0]
-            var y = path[vertex][1]
-            path_length +=
-              Math.sqrt((x-x_prev)*(x-x_prev)+(y-y_prev)*(y-y_prev))
+        for (var poly = 0; poly < path.length; poly++) {
+          var polyline = path[poly]
+          var x_prev = 0
+          var y_prev = 0
+          if (polyline.length > 1) {
+            var x = polyline[0][0]
+            var y = polyline[0][1]
             this.bboxExpand(path_bbox, x, y)
             x_prev = x
             y_prev = y
+            for (vertex=1; vertex<polyline.length; vertex++) {
+              var x = polyline[vertex][0]
+              var y = polyline[vertex][1]
+              path_length +=
+                Math.sqrt((x-x_prev)*(x-x_prev)+(y-y_prev)*(y-y_prev))
+              this.bboxExpand(path_bbox, x, y)
+              x_prev = x
+              y_prev = y
+            }
           }
         }
         this.stats.paths.push({'bbox':path_bbox, 'length':path_length})
@@ -439,14 +442,14 @@ JobHandler = {
       this.stats.images = []
       for (var k=0; k<this.raster.images.length; k++) {
         var image = this.raster.images[k]
-        var image_length = (2*appconfig_main.raster_offset + image.size[0])
-                         * Math.floor(image.size[1]/appconfig_main.raster_kerf)
-        var image_bbox = [image.pos[0] - appconfig_main.raster_offset,
+        var image_length = (2*app_config_main.raster_offset + image.size[0])
+                         * Math.floor(image.size[1]/app_config_main.raster_size)
+        var image_bbox = [image.pos[0] - app_config_main.raster_offset,
                           image.pos[1],
-                          image.pos[0] + image.size[0] + appconfig_main.raster_offset,
+                          image.pos[0] + image.size[0] + app_config_main.raster_offset,
                           image.pos[1] + image.size[1]
                          ]
-        this.stats.images.push({'bbox':path_bbox, 'length':path_length})
+        this.stats.images.push({'bbox':image_bbox, 'length':image_length})
         length_all += image_length
         this.bboxExpand(bbox_all, image_bbox[0], image_bbox[1])
         this.bboxExpand(bbox_all, image_bbox[2], image_bbox[3])
@@ -460,6 +463,64 @@ JobHandler = {
     }
   },
 
+  getActivePassesLength : function() {
+    var length = 0
+    // vector
+    if ('passes' in this.vector) {
+      for (var i = 0; i < this.vector.passes.length; i++) {
+        var pass = this.vector.passes[i]
+        for (var j = 0; j < pass.paths.length; j++) {
+          var path_idx = pass.paths[j]
+          if (path_idx >= 0 && path_idx < this.stats.paths.length) {
+            length += this.stats.paths[path_idx].length
+          }
+        }
+      }
+    }
+    // raster
+    if ('passes' in this.raster) {
+      for (var i = 0; i < this.raster.passes.length; i++) {
+        var pass = this.raster.passes[i]
+        for (var j = 0; j < pass.images.length; j++) {
+          var image_idx = pass.images[j]
+          if (image_idx >= 0 && image_idx < this.stats.images.length) {
+            length += his.stats.images[image_idx].length
+          }
+        }
+      }
+    }
+    return length
+  },
+
+  getActivePassesBbox : function() {
+    var bbox = [Infinity, Infinity, -Infinity, -Infinity]
+    // vector
+    if ('passes' in this.vector) {
+      for (var i = 0; i < this.vector.passes.length; i++) {
+        var pass = this.vector.passes[i]
+        for (var j = 0; j < pass.paths.length; j++) {
+          var path_idx = pass.paths[j]
+          if (path_idx >= 0 && path_idx < this.stats.paths.length) {
+            this.bboxExpand2(bbox, this.stats.paths[path_idx].bbox)
+          }
+        }
+      }
+    }
+    // raster
+    if ('passes' in this.raster) {
+      for (var i = 0; i < this.raster.passes.length; i++) {
+        var pass = this.raster.passes[i]
+        for (var j = 0; j < pass.images.length; j++) {
+          var image_idx = pass.images[j]
+          if (image_idx >= 0 && image_idx < this.stats.images.length) {
+            this.bboxExpand2(bbox, this.stats.images[image_idx].bbox)
+          }
+        }
+      }
+    }
+    return bbox
+  },
+
 
   bboxExpand : function(bbox, x, y) {
     if (x < bbox[0]) {bbox[0] = x;}
@@ -468,30 +529,10 @@ JobHandler = {
     else if (y > bbox[3]) {bbox[3] = y;}
   },
 
-  getJobPathLength : function() {
-    var total_length = 0;
-    for (var k=0; k<this.vector.passes.length; k++) {
-      // var
 
-
-
-    }
-
-    for (var color in this.getPassesColors()) {
-      stat = this.stats[color];
-      total_length += stat['length'];
-    }
-    return total_length;
-  },
-
-  getJobBbox : function() {
-    var total_bbox = [Infinity, Infinity, 0, 0];
-    for (var color in this.getPassesColors()) {
-      stat = this.stats[color];
-      this.bboxExpand(total_bbox, stat['bbox'][0], stat['bbox'][1]);
-      this.bboxExpand(total_bbox, stat['bbox'][2], stat['bbox'][3]);
-    }
-    return total_bbox;
+  bboxExpand2 : function(bbox, bbox2) {
+    this.bboxExpand(bbox, bbox2[0], bbox2[1])
+    this.bboxExpand(bbox, bbox2[2], bbox2[3])
   },
 
 
@@ -502,7 +543,7 @@ JobHandler = {
     var x_prev = 0;
     var y_prev = 0;
     var d2 = 0;
-    var length_limit = appconfig_main.max_segment_length;
+    var length_limit = app_config_main.max_segment_length;
     var length_limit2 = length_limit*length_limit;
 
     var lerp = function(x0, y0, x1, y1, t) {

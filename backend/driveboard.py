@@ -212,6 +212,7 @@ markers_rx = {
 
 
 SerialLoop = None
+fallback_msg_thread = None
 
 class SerialLoopClass(threading.Thread):
 
@@ -233,8 +234,8 @@ class SerialLoopClass(threading.Thread):
         self.job_size = 0
 
         # status flags
-        self._status = {}
-        self._s = {}
+        self._status = {}    # last complete status frame
+        self._s = {}         # status fram currently assembling
         self.reset_status()
         self._paused = False
 
@@ -254,37 +255,29 @@ class SerialLoopClass(threading.Thread):
         # see: http://effbot.org/zone/thread-synchronization.htm
         self.lock = threading.Lock()
 
-        self.server_enabled = False
-
 
 
     def reset_status(self):
         self._status = {
+            'ready': False,                  # is hardware idle (and not stop mode)
+            'serial': False,                # is serial connected
             'appver':conf['version'],
             'firmver': None,
-            'ready': False,
             'paused': False,
-            'serial': False,
             'pos':[0.0, 0.0, 0.0],
-            'underruns': 0,
-            'stackclear': 999999,
+            'underruns': 0,                 # how many times machine is waiting for serial data
+            'stackclear': 999999,           # minimal stack clearance (must stay above 0)
+            'progress': 1.0,
 
             ### stop conditions
             # indicated when key present
-            # possible keys are:
-            # x1, x2, y1, y2, z1, z2
-            # requested
-            # buffer
-            # marker
-            # data
-            # command
-            # parameter
-            # transmission
             'stops': {},
+            # possible keys:
+            # x1, x2, y1, y2, z1, z2,
+            # requested, buffer, marker, data, command, parameter, transmission
 
-            # door
-            # chiller
             'info':{},
+            # possible keys: door, chiller
 
             ### super
             'offset': [0.0, 0.0, 0.0],
@@ -375,7 +368,7 @@ class SerialLoopClass(threading.Thread):
                         print "ERROR: firmware buffer tracking to low"
                 elif char == STATUS_END:
                     # status frame complete, compile status
-                    self._status, self._s = self._s, self._status
+                    self._status, self._s = self._s, self._status  # flip
                     self._status['paused'] = self._paused
                     self._status['serial'] = bool(self.device)
                     if self.job_size == 0:
@@ -389,7 +382,7 @@ class SerialLoopClass(threading.Thread):
                     self._s['underruns'] = self._status['underruns']
                     self._s['stackclear'] = self._status['stackclear']
                     # send through status server
-                    if self.server_enabled:
+                    if statserver.is_running() and statserver.msg_every_now():
                         statusjson = json.dumps(self._status)
                         statserver.send(statusjson)
                         statserver.on_connected_message(statusjson)
@@ -415,7 +408,8 @@ class SerialLoopClass(threading.Thread):
                     print "ERROR firmware: limit hit z2"
                 elif char == ERROR_SERIAL_STOP_REQUEST:
                     self._s['stops']['requested'] = True
-                    print "ERROR firmware: stop request"
+                    # print "ERROR firmware: stop request"
+                    print "INFO firmware: stop request"
                 elif char == ERROR_RX_BUFFER_OVERFLOW:
                     self._s['stops']['buffer'] = True
                     print "ERROR firmware: rx buffer overflow"
@@ -436,17 +430,18 @@ class SerialLoopClass(threading.Thread):
                     print "ERROR firmware: transmission"
                 else:
                     print "ERROR: invalid stop error marker"
-                # in stop mode, print recent transmission
-                recent_chars = self.tx_buffer[max(0,self.tx_pos-128):self.tx_pos]
-                print "RECENT TX BUFFER:"
-                for char in recent_chars:
-                    if markers_tx.has_key(char):
-                        print "\t%s" % (markers_tx[char])
-                    elif 127 < ord(char) < 256:
-                        print "\t(data byte)"
-                    else:
-                        print "\t(invalid)"
-                print "----------------"
+                # in stop mode, print recent transmission, unless stop request
+                if char != ERROR_SERIAL_STOP_REQUEST:
+                    recent_chars = self.tx_buffer[max(0,self.tx_pos-128):self.tx_pos]
+                    print "RECENT TX BUFFER:"
+                    for char in recent_chars:
+                        if markers_tx.has_key(char):
+                            print "\t%s" % (markers_tx[char])
+                        elif 127 < ord(char) < 256:
+                            print "\t(data byte)"
+                        else:
+                            print "\t(invalid)"
+                    print "----------------"
                 # stop mode housekeeping
                 self.tx_buffer = []
                 self.tx_pos = 0
@@ -632,6 +627,10 @@ def find_controller(baudrate=conf['baudrate']):
 
 
 def connect(port=conf['serial_port'], baudrate=conf['baudrate'], server=False):
+    # start up status server
+    if server:
+        statserver.start()
+
     global SerialLoop
     if not SerialLoop:
         SerialLoop = SerialLoopClass()
@@ -658,8 +657,8 @@ def connect(port=conf['serial_port'], baudrate=conf['baudrate'], server=False):
                 SerialLoop.device.setDTR(True)
                 # for good measure
                 SerialLoop.device.flushOutput()
-            else:
-                reset()
+            # else:
+            #     reset()
                 # time.sleep(0.5)
                 # SerialLoop.device.flushInput()
                 # SerialLoop.device.flushOutput()
@@ -675,16 +674,25 @@ def connect(port=conf['serial_port'], baudrate=conf['baudrate'], server=False):
                     break
 
             SerialLoop.start()  # this calls run() in a thread
-
-            # start up status server
-            SerialLoop.server_enabled = server
-            if SerialLoop.server_enabled:
-                statserver.start()
-
         except serial.SerialException:
             SerialLoop = None
             print "ERROR: Cannot connect serial on port: %s" % (port)
-
+            if server:
+                # keep sending statserver messages
+                def run_fallback_stat_msgs():
+                    while True:
+                        if statserver.is_running():
+                            statusjson = json.dumps({'ready': False, 'serial': False})
+                            statserver.send(statusjson)
+                            statserver.on_connected_message(statusjson)
+                            time.sleep(4.0)
+                        else:
+                            print "driveboard:statusthread: stopped."
+                            break
+                global fallback_msg_thread
+                fallback_msg_thread = threading.Thread(target=run_fallback_stat_msgs)
+                fallback_msg_thread.deamon = True  # kill thread when main thread exits
+                fallback_msg_thread.start()
     else:
         print "ERROR: disconnect first"
 
@@ -695,6 +703,11 @@ def connected():
 
 
 def close():
+    # stop status server
+    statserver.stop()
+    if fallback_msg_thread and fallback_msg_thread.is_alive():
+        fallback_msg_thread.join()
+
     global SerialLoop
     if SerialLoop:
         if SerialLoop.device:
@@ -706,9 +719,6 @@ def close():
         if SerialLoop.is_alive():
             SerialLoop.stop_processing = True
             SerialLoop.join()
-        # stop status server
-        if SerialLoop.server_enabled:
-            statserver.stop()
     else:
         ret = False
     SerialLoop = None
@@ -740,7 +750,13 @@ def build(firmware_name="LasaurGrbl"):
 
 def reset():
     import flash
+    reconnect = False
+    if connected():
+        close()
+        reconnect = True
     flash.reset_atmega()
+    if reconnect:
+        connect()
 
 
 def status():
@@ -748,6 +764,7 @@ def status():
     global SerialLoop
     with SerialLoop.lock:
         stats = copy.deepcopy(SerialLoop._status)
+        stats['serial'] = connected()  # make sure serial flag is up-to-date
     return stats
 
 
@@ -826,7 +843,7 @@ def job(jobdict):
                     "paths": [0],          # paths by index
                     "relative": True,      # optional, default: False
                     "seekrate": 6000,      # optional, rate to first vertex
-                    "feedrate": 2000,      # optional, rate to other verteces
+                    "feedrate": 2000,      # optional, rate to other vertices
                     "intensity": 100,      # optional, default: 0 (in percent)
                     "pierce_time": 0,      # optional, default: 0
                     "air_assist": "pass",  # optional (feed, pass, off), default: pass
@@ -836,7 +853,7 @@ def job(jobdict):
             "paths":
             [                              # list of paths
                 [                          # list of polylines
-                    [                      # list of verteces
+                    [                      # list of vertices
                         [0,-10, 0],        # list of coords
                     ],
                 ],
@@ -875,6 +892,10 @@ def job(jobdict):
     if not jobdict.has_key('raster') and not jobdict.has_key('vector'):
         print "ERROR: invalid job"
         return
+
+    # reset vavles
+    air_off()
+    aux1_off()
 
     # ### rasters
     # if jobdict.has_key('raster'):

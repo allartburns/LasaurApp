@@ -31,6 +31,7 @@ conf = {
     'firmware': 'LasaurGrbl.hex',
     'tolerance': 0.01,
     'workspace': [1220,610,0],
+    'grid_mm': 100,
     # 'intensity_minmax': [0,255],
     'seekrate': 6000,
     'feedrate': 2000,
@@ -52,6 +53,9 @@ conf = {
     'raster_feedrate': 3000,
     'raster_intensity': 20,
     'raster_linechars': 70,
+
+    'seek_color': '#eeeeee',            # color of seek lines in frontend
+    'bounds_color': '#dddddd',          # color of bounding boxes in frontend
 }
 
 
