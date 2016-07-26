@@ -280,12 +280,12 @@ class SerialLoopClass(threading.Thread):
 
     def _serial_read(self):
         for char in self.device.read(RX_CHUNK_SIZE):
-            # sys.stdout.write('('+char+','+str(ord(char))+')')
+            #sys.stdout.write('('+char+','+str(ord(char))+')')
             if ord(char) < 32:  ### flow
                 if char == CMD_CHUNK_PROCESSED:
                     self.firmbuf_used -= TX_CHUNK_SIZE
                     if self.firmbuf_used < 0:
-                        print "ERROR: firmware buffer tracking to low"
+                        print "ERROR: firmware buffer tracking too low"
                 elif char == STATUS_END:
                     # status frame complete, compile status
                     self._status, self._s = self._s, self._status
@@ -376,10 +376,13 @@ class SerialLoopClass(threading.Thread):
                 if char == INFO_IDLE_YES:
                     if not self.tx_buffer:
                         self._s['ready'] = True
+                    	print "INFO_IDLE_YES"
                 elif char == INFO_DOOR_OPEN:
                     self._s['info']['door'] = True
+                    print "INFO_DOOR_OPEN"
                 elif char == INFO_CHILLER_OFF:
                     self._s['info']['chiller'] = True
+                    print "INFO_CHILLER_OFF"
                 else:
                     print "ERROR: invalid info flag"
                     sys.stdout.write('('+char+','+str(ord(char))+')')
