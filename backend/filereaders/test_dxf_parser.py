@@ -15,6 +15,7 @@ fin.close()
 
 dxf_string = unicode(dxf_string)
 dxfParser = DXFParser(0.8)
+#0 means to use INSUNITS from the DXF file
 forced_unit = 0
 
 parse_results = dxfParser.parse(dxf_string, forced_unit)

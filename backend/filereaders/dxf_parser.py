@@ -383,9 +383,10 @@ class DXFParser:
                 print("x_min %f" % self.x_min)
                 print("x_max %f" % self.x_max)
                 print("xShift %f" % xShift)
+
         if self.y_min < self.bedwidth[1]:
             self.y_min += 0
-            if self.y_min == 0:
+            if self.y_min <= 0:
                 yShift = 0.0 - self.y_max
             else:
                 yShift = self.bedwidth[1]
