@@ -143,6 +143,9 @@ class DXFParser:
             print ("y min %f" % self.y_min)
             print ("y max %f" % self.y_max)
 
+        # remember that Y is in negative space relative to our bed,
+        # CAD software has 0,0 and bottom left, lasersaur has
+        # it at top left.
         if self.x_min < 0 or self.y_max > -self.bedwidth[1]:
             if self.verbose:
                 print("doing shiftPositive")
@@ -380,7 +383,16 @@ class DXFParser:
                 print("x_max %f" % self.x_max)
                 print("xShift %f" % xShift)
         if self.y_min < self.bedwidth[1]:
-            yShift = 0.0 - self.y_min - self.y_max
+            self.y_min += 0
+            if self.y_min <= 0:
+                # y_max gets the entire piece moved across
+                # the axis, y_min is the distance we used
+                # to be from y=0.  This allows us to maintian
+                # the offset from the y axis found in the original
+                # DXF
+                yShift = 0.0 - self.y_min - self.y_max
+            else:
+                yShift = self.bedwidth[1]
             if self.debug:
                 print("y_min %f" % self.y_min)
                 print("y_max %f" % self.y_max)
