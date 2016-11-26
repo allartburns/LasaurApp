@@ -15,7 +15,7 @@ import sys
 import linecache
 
 class DXFParser:
-    """Parse DXF using dxfgrabber-0.7.4
+    """Parse DXF using dxfgrabber >=0.7.4 <=0.8.1
 
     Usage:
     reader = DXFParser(tolerance)
@@ -30,6 +30,8 @@ class DXFParser:
         self.tolerance2 = tolerance**2
 
         self.bedwidth = [1220, 610]
+
+        self.dxfgrabber_version = dxfgrabber.version
         
         # parsed path data, paths by color
         # {'#ff0000': [[path0, path1, ..], [path0, ..], ..]}
@@ -85,8 +87,7 @@ class DXFParser:
         dxfStream = io.StringIO(unicode(dxfInput.replace('\r\n','\n')))
         dwg = dxfgrabber.read(dxfStream)
         if not dwg:
-            print ("DXFGRABBER FAIL")
-            raise RuntimeError
+            raise RuntimeError("dxfgrabber.read() failed")
 
         # TODO: check DXF version to see if INSUNITS is expected
         # TODO: try and guess mm vs in based on max x/y
@@ -169,7 +170,8 @@ class DXFParser:
             raise RuntimeError
             
         if self.verbose:
-            print("DXF version: {}".format(dwg.dxfversion))
+            print("dxfgrabber release: ", self.dxfgrabber_version)
+            print("DXF file format version: {}".format(dwg.dxfversion))
             print("header var count: ", len(dwg.header))
             print("layer count: ", len(dwg.layers)) 
             print("block def count: ", len(dwg.blocks))
@@ -240,8 +242,13 @@ class DXFParser:
         cx = self.unitize(entity.center[0])
         cy = self.unitize(entity.center[1])
         r = self.unitize(entity.radius)
-        theta1deg = entity.startangle
-        theta2deg = entity.endangle
+        # version 0, 8, 0 changed some entity names
+        if self.dxfgrabber_version[1] == 8:
+            theta1deg = entity.start_angle
+            theta2deg = entity.end_angle
+        else:
+            theta1deg = entity.startangle
+            theta2deg = entity.endangle
         thetadiff = theta2deg - theta1deg
         if thetadiff < 0 :
             thetadiff = thetadiff + 360
