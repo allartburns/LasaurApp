@@ -86,11 +86,35 @@ class DXFParser:
         dwg = dxfgrabber.read(dxfStream)
         if not dwg:
             print ("DXFGRABBER FAIL")
-            raise ValueError
+            raise RuntimeError
 
         # TODO: check DXF version to see if INSUNITS is expected
         # TODO: try and guess mm vs in based on max x/y
         # set up unit conversion
+        #
+        # 0 unitless
+        # 1 inches
+        # 2 feet
+        # 3 miles
+        # 4 mm
+        # 5 cm
+        # 6 m
+        # 7 km
+        # 8 microinches
+        # 9 mils
+        # 10 yards
+        # 11 angstroms
+        # 12 nanometeres
+        # 13 microns
+        # 14 decimeters
+        # 15 decameters
+        # 16 hectometers
+        # 17 gigameters
+        # 18 au
+        # 19 light years
+        # 20 parsecs
+
+        
         if forced_unit == 0 or forced_unit == None:
             self.units = dwg.header.setdefault('$INSUNITS', 0)
         else:
@@ -102,11 +126,47 @@ class DXFParser:
             self.unitsString = "unitless"
         elif self.units == 1:
             self.unitsString = "inches"
+        elif self.units == 2:
+            self.unitsString = "feet"
+        elif self.units == 3:
+            self.unitsString = "miles"
         elif self.units == 4:
             self.unitsString = "mm"
+        elif self.units == 5:
+            self.unitsString = "cm"
+        elif self.units == 6:
+            self.unitsString = "m"
+        elif self.units == 7:
+            self.unitsString = "km"
+        elif self.units == 8:
+            self.unitsString = "microinch"
+        elif self.units == 9:
+            self.unitsString = "mils"
+        elif self.units == 10:
+            self.unitsString = "yards"
+        elif self.units == 11:
+            self.unitsString = "angstroms"
+        elif self.units == 12:
+            self.unitsString = "nanometers"
+        elif self.units == 13:
+            self.unitsString = "microns"
+        elif self.units == 14:
+            self.unitsString = "decimeters"
+        elif self.units == 15:
+            self.unitsString = "decameters"
+        elif self.units == 16:
+            self.unitsString = "hectometers"
+        elif self.units == 17:
+            self.unitsString = "gigameters"
+        elif self.units == 18:
+            self.unitsString = "astronomical units"
+        elif self.units == 19:
+            self.unitsString = "light years"
+        elif self.units == 20:
+            self.unitsString = "parsecs"
         else:
             print("DXF units: >%s< unsupported" % self.units)
-            raise ValueError
+            raise RuntimeError
             
         if self.verbose:
             print("DXF version: {}".format(dwg.dxfversion))
@@ -277,7 +337,7 @@ class DXFParser:
         print "Encountered a SPLINE at line", self.linecount
         print "This program cannot handle splines at present."
         print "Convert the spline to an LWPOLYLINE using Save As options in SolidWorks."
-        raise ValueError
+        raise RuntimeError
 
     def complain_invalid(self):
         print "Skipping unrecognized element '" + self.line + "' on line", self.linecount
@@ -364,17 +424,14 @@ class DXFParser:
                 thisColor = self.colorLayers[color]
                 for i in range(0, len(thisColor)):
                     if thisColor[i][0][0] < 0 or thisColor[i][0][0] > self.bedwidth[0]:
-                        print("WARN: outside of bounds x0 ",  thisColor[i][0][0])
-                        raise ValueError
+                        
+                        raise RuntimeError("point outside of bounds x0 ",  thisColor[i][0][0])
                     elif thisColor[i][0][1] < 0 or thisColor[i][0][1] > self.bedwidth[1]:
-                        print("WARN: outside of bounds y0 ",  thisColor[i][0][1])
-                        raise ValueError
+                        raise RuntimeError("point outside of bounds y0 ",  thisColor[i][0][1])
                     elif thisColor[i][1][0] < 0 or thisColor[i][1][0] > self.bedwidth[0]:
-                        print("WARN: outside of bounds x1 ",  thisColor[i][1][0])
-                        raise ValueError
+                        raise RuntimeError("point outside of bounds x1 ",  thisColor[i][1][0])
                     elif thisColor[i][1][1] < 0 or thisColor[i][1][1] > self.bedwidth[1]:
-                        print("WARN: outside of bounds y1 ",  thisColor[i][1][1])
-                        raise ValueError
+                        raise RuntimeError("point outside of bounds y1 ",  thisColor[i][1][1])
         
 
     def shiftPositive(self):
@@ -426,11 +483,34 @@ class DXFParser:
         elif y < self.y_max:
             self.y_max = y
 
+    # convert value to mm
     def unitize(self, value):
+        #inches
         if self.units == 0 or self.units == 1:
             return round(value * 25.4, self.round)
+        #feet
+        elif self.units == 2:  
+            return round(value * 304.8, self.round)
+        #mm
         elif self.units == 4:
             return round(value, self.round)
-        print ("don't know how to convert units ", units)
-        raise ValueError
+        #cm
+        elif self.units == 5:
+            return round(value * 10, self.round)
+        #m
+        elif self.units == 6:
+            return round(value * 1000, self.round)
+        #micro inches, or millionth of an inch
+        # 10E6 ui / 25.4mm  = 39370.07874015748031
+        elif self.units == 8:
+            return round(value / 39370.0787, self.round)
+        #mils, thousandth of an inch
+        # 1000 mil / 25.4mm = 39.37007874015748
+        elif self.units == 9:
+            return round(value / 39.3700, self.round)
+        #yards
+        elif self.units == 10:
+            return round(value * 914.4, self.round)
+        else:
+            raise RuntimeError("don't know how to convert INSUNIT value %d, %s " % (self.units, self.unitsString))
 
